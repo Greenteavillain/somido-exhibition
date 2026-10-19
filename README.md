@@ -3,6 +3,7 @@
 `exhibition-all4/`(전부 펼침 · 누르면 모임)를 복사해 **내용을 벽(가운데 벽 출력물)의 재료로 바꾸고, 카드 모양을 벽 출력물과 같게** 한 판. 전시장 아이맥 + GitHub Pages용.
 작가(10-19): "그냥 기존 exhibition4에서 디자인 바꾸고 내용들 바꾸는 방향으로 가자. 내용은 이미 바꿨을 것 같으니 교체" → 범위 "전부 다. 벽에 있는 것 스타일로 전부", 디자인 "벽 출력물과 같은 모양". all4·all5는 비교용으로 그대로.
 
+- **공개 주소: https://greenteavillain.github.io/somido-exhibition/** (GitHub Pages, 레포 Greenteavillain/somido-exhibition = 이 폴더, 2026-10-19 작가가 push). 고친 뒤엔 이 폴더에서 `git add -A && git commit && git push`.
 - 열기(개발): 서버(`exhibition/server.py --port 8767`)를 켠 채 http://127.0.0.1:8767/exhibition-all6/ — 또는 폴더를 그대로 정적 호스팅(서버 API 안 씀).
 - 만들기: `python3 build_all6.py` → `data/bundle.js`. 금지어(실명·지명)가 남으면 멈춤. `--dev`는 화면 확인용(남은 채로 씀, 올리면 안 됨).
 
