@@ -1,0 +1,13 @@
+0 p001 {'page': 3, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+20 p022 {'page': 27, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+40 p043 {'page': 47, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+60 p063 {'page': 67, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+80 p085 {'page': 87, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+100 p105 {'page': 107, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+120 p125 {'page': 127, 'f': 0.46, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 0.0}
+140 p145 {'page': 147, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+160 p165 {'page': 167, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+180 p185 {'page': 187, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+200 p205 {'page': 207, 'f': 0.5, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 1.0}
+done 210 ncc median 1.0 min {'page': 40, 'f': 0.46, 'tx': np.float64(0.0), 'ty': np.float64(0.0), 'ncc': 0.0}
+check → /Users/greenteavillain/Documents/Codex/2026-09-16/new-chat/outputs/somido-map/exhibition-all6/tools/_pagemap_check.jpg
