@@ -187,7 +187,7 @@ body.canvas-mode{background:#fff;overflow:hidden}
 .memo-card .wall-body .wall-card-foot{margin-top:10px;padding-top:8px;border-top:1px solid #ecebe4}
 .canvas-memory-card .memo-card .excerpt{font-size:11px;line-height:15.5px;max-height:260px}
 /* 일기: 손글씨 SVG + 초록 둥근 형광펜 */
-.diary-card .diary-wrap{position:relative;width:100%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.12);overflow:hidden}
+.diary-card .diary-wrap{position:relative;width:100%;background:#fff;overflow:hidden} /* 10-19 작가: 그림자 없음 */
 .diary-card .diary-wrap img{position:absolute;inset:0;width:100%;height:100%;display:block;margin:0}
 .diary-card .hl{position:absolute;border:2px solid var(--hl);border-radius:6px;opacity:.85;pointer-events:none}
 /* 구술: 작가 말풍선 틀(폭 240pt 틀을 260px로 — 모퉁이 R10 실물 → 15px, 테두리 1.5, 꼬리 아랫변 54px에서 수직 29 ↓ 뒤 85로 ↗) */
@@ -199,7 +199,7 @@ body.canvas-mode{background:#fff;overflow:hidden}
 .bubble-card .cen,.postit-card .cen,.thread-note .cen{background:#9a9a9a;color:transparent;border-radius:2px;letter-spacing:-1px}
 .bubble-card .rep{background:#d9d9d9;padding:0 3px;border-radius:2px}
 /* 포스트잇(따로 붙이는 쪽지·실 매듭 문구): 노란 정사각 손글씨 */
-.postit-card,.thread-note{background:var(--postit);width:150px;min-height:150px;padding:12px 12px;font-family:"DaegwangHand","나눔손글씨 대광유리",sans-serif;font-size:15px;line-height:1.35;color:var(--ink);box-shadow:2px 3px 8px rgba(0,0,0,.15);transform:rotate(-1.5deg);word-break:keep-all}
+.postit-card,.thread-note{background:var(--postit);width:150px;min-height:150px;padding:12px 12px;font-family:"DaegwangHand","나눔손글씨 대광유리",sans-serif;font-size:15px;line-height:1.35;color:var(--ink);transform:rotate(-1.5deg);word-break:keep-all} /* 10-19 작가: 그림자 없음 */
 .canvas-memory-card .postit-card .excerpt{font-size:15px;line-height:1.35;max-height:none;overflow:visible;padding:0;white-space:normal;font-family:inherit}
 .thread-note{position:absolute;pointer-events:none;z-index:4}
 .thread-note.people{transform:rotate(1.2deg)}
@@ -210,8 +210,10 @@ body.canvas-mode{background:#fff;overflow:hidden}
 .wall-lines.thread-lines rect.knot{fill:none;stroke-width:2}
 .wall-lines.thread-lines rect.knot.cook{stroke:var(--cook)}
 .wall-lines.thread-lines rect.knot.people{stroke:var(--ink)}
-.atlas-world.focusing .thread-lines,.atlas-world.focusing .thread-note,.atlas-world.dimming .thread-lines,.atlas-world.dimming .thread-note{opacity:.25}
-.thread-lines,.thread-note{transition:opacity .2s}
+/* 10-19 작가 "선들은 평소에는 안 보이게. 선에 달린 포스트잇도 마찬가지. 관련된 컷 클릭해서 선이 보이게 될 때 보이면 충분" → 실·매듭·포스트잇은 쪽에 올리거나(.on) 눌러 모았을 때(.pin-on)만 */
+.wall-lines.thread-lines g,.thread-note{opacity:0;transition:opacity .2s}
+.wall-lines.thread-lines g.on,.wall-lines.thread-lines g.pin-on,.thread-note.on,.thread-note.pin-on{opacity:1}
+.thread-note.pin-on{z-index:10}
 /* 짝: 두 쪽 중 하나에 올렸을 때만, 연한 점선 + 이름·뜻 */
 .wall-lines.pair-lines g.pair{opacity:0;transition:opacity .2s}
 .wall-lines.pair-lines g.pair.on{opacity:1}
@@ -226,3 +228,7 @@ body.canvas-mode{background:#fff;overflow:hidden}
 
 .wall-lines{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
 .wall-lines path,.wall-lines rect{fill:none;vector-effect:none}
+
+/* 10-19: 말풍선 글이 길면(Floe 메모·대화) 상자 안에서 스크롤 */
+.canvas-memory-card .bubble-card .excerpt{max-height:320px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.wall-card-foot{display:none}

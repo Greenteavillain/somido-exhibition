@@ -207,22 +207,21 @@ function highlighted(raw,excerpts){
 // all6(2026-10-19 작가 "벽 출력물과 같은 모양"): 기록 종류마다 벽의 모양 — 일기 = 손글씨 SVG + 초록 둥근 형광펜(marks), 구술 = 작가 말풍선 틀(꼬리·R10·가린 글은 회색),
 //   포스트잇 = 노란 손글씨 쪽지, 나머지(Floe 메모·대화·구성안·결정·초안) = 흰 메모 카드(글 전문, 만화에 쓰인 대목만 진하게 — all4 그대로).
 //   가린 글 표시는 build_all6.py가 원문을 지운 채로 줌: '[■■■]' = 가린 글(글자 수만), '⟦대체어⟧' = 이름을 덮은 말, 포스트잇의 '{이름}' = 회색으로 덮음.
-const CARD_W={diary:240,oral_recollection:260,submitted_story:260,postit:150};
+const CARD_W={diary:240,postit:150}; // 나머지(말풍선)는 260
 function cardWidth(s){return CARD_W[s?.sourceType]||260;}
 function bubbleHTML(t){return esc(t).replace(/⟦([^⟦⟧]*)⟧/g,'<span class="rep">$1</span>').replace(/\[(■+)\]/g,'<span class="cen">$1</span>').replace(/\{([^{}]+)\}/g,(m,g)=>`<span class="cen">${'■'.repeat(Math.max(2,g.length))}</span>`);}
 function kindLabel(s){return (TYPES[s.sourceType]||'기록')+(s.sentTo?' · '+s.sentTo:s.heardBy?' · '+s.heardBy+'에게'+(s.heardByGuess?' (추정)':''):s.via?' · '+s.via+'에서':'');}
 function stageCard(id,link){
+ // 2026-10-19 작가: "메모 카드는 전부 구술처럼 바꿔줘. 종류·날짜 줄 없어도 됨. 그림자도 없애줘" → 일기·포스트잇 말고는 모두 말풍선, 아래 설명 줄 없음
  const v=versionOf(id);
- if(v)return `<article class="record-card wall-card memo-card"><div class="wall-body"><p class="excerpt" data-canvas-no-pan><span class="wall-hit">${esc(cleanSeg(v.text).trim())}</span></p><div class="wall-card-foot"><span class="source-kind">${esc(TYPES.floe)}</span><span class="wall-date">${esc(stageDate(id))}</span></div></div></article>`;
+ const bubble=text=>`<article class="record-card wall-card bubble-card"><div class="bubble"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(text)}</p><svg class="tail" viewBox="0 0 32 31" aria-hidden="true"><path class="fill" d="M0 0 L0 30.4 L31.3 0 Z"/><path class="line" d="M0.75 0 L0.75 29 L31 0.75"/></svg></div></article>`;
+ if(v)return bubble(cleanSeg(v.text).trim());
  const s=sourceById.get(id);if(!s)return '';
  if(s.sourceType==='diary'){ // 손글씨 SVG(글은 공개 파일에 없음) + 형광펜 상자(SVG 비율). 높이는 aspect로 미리 정해져 그림이 늦게 와도 배치가 안 흔들림
   const marks=(s.marks||[]).map(m=>`<i class="hl" title="${esc(m.reason||'')}" style="left:${(m.box[0]*100).toFixed(2)}%;top:${(m.box[1]*100).toFixed(2)}%;width:${(m.box[2]*100).toFixed(2)}%;height:${(m.box[3]*100).toFixed(2)}%"></i>`).join('');
-  return `<article class="record-card wall-card diary-card"><div class="diary-wrap" style="aspect-ratio:1/${s.aspect||1.316}">${s.image?`<img src="${esc(s.image)}" alt="일기 ${esc(s.date||'')}" loading="lazy" decoding="async">`:''}${marks}</div><div class="wall-card-foot"><span class="source-kind">${esc(TYPES.diary)}</span><span class="wall-date">${esc(s.date||stageDate(id))}</span></div></article>`;}
- if(s.sourceType==='oral_recollection'||s.sourceType==='submitted_story'){ // 작가 말풍선 틀: 폭 고정, 글이 늘면 아래로, 꼬리는 왼쪽 아래(수직 → 사선)
-  return `<article class="record-card wall-card bubble-card"><div class="bubble"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(s.content||'')}</p><svg class="tail" viewBox="0 0 32 31" aria-hidden="true"><path class="fill" d="M0 0 L0 30.4 L31.3 0 Z"/><path class="line" d="M0.75 0 L0.75 29 L31 0.75"/></svg></div><div class="wall-card-foot"><span class="source-kind">${esc(kindLabel(s))}</span><span class="wall-date">${esc(stageDate(id))}</span></div></article>`;}
+  return `<article class="record-card wall-card diary-card"><div class="diary-wrap" style="aspect-ratio:1/${s.aspect||1.316}">${s.image?`<img src="${esc(s.image)}" alt="일기 ${esc(s.date||'')}" loading="lazy" decoding="async">`:''}${marks}</div></article>`;}
  if(s.sourceType==='postit')return `<article class="record-card wall-card postit-card"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(s.content||'')}</p></article>`;
- const raw=sourceText(s);const ex=publicOverrides.has(s.id)?[]:[link?.sourceExcerpt,link?.publicQuote];
- return `<article class="record-card wall-card memo-card"><div class="wall-body"><p class="excerpt" data-canvas-no-pan>${highlighted(raw,ex.filter(Boolean))}</p><div class="wall-card-foot"><span class="source-kind">${esc(kindLabel(s))}</span><span class="wall-date">${esc(stageDate(id))}</span></div></div></article>`;
+ return bubble(s.sourceType==='oral_recollection'||s.sourceType==='submitted_story'?(s.content||''):cleanSeg(sourceText(s)).trim());
 }
 // 2026-10-03 작가 요청: 장면마다 '기억 줄'(일기 → Floe 회상 → 대본 초안·판본)과 '결정 줄'(제작 대화·구성 결정)을 나눠 그리고,
 // 두 줄이 만화 컷에서 합쳐지게 한다(제작 대화가 초안이 바뀐 결과처럼 읽히지 않게).
@@ -396,8 +395,8 @@ function renderAllMemories(tiles){
   let tsvg='',notes='';const NW=150,NH=150,noteRects=[];
   for(const t of (B.threads||[])){const pts=t.nodes.map(n=>({...n,c:cutC(n.page,n.rect)})).filter(n=>n.c);
    for(let i=0;i<pts.length;i++){const n=pts[i],c=n.c;
-    tsvg+=`<rect class="knot ${t.id}" x="${c.r.x.toFixed(1)}" y="${c.r.y.toFixed(1)}" width="${c.r.w.toFixed(1)}" height="${c.r.h.toFixed(1)}" rx="6"/>`;
-    if(i>0){const p=pts[i-1].c;tsvg+=`<path class="${t.id}" d="M ${p.x.toFixed(1)} ${p.y.toFixed(1)} L ${c.x.toFixed(1)} ${c.y.toFixed(1)}"/>`;}
+    tsvg+=`<g data-page="${esc(n.page)}" data-cards=""><rect class="knot ${t.id}" x="${c.r.x.toFixed(1)}" y="${c.r.y.toFixed(1)}" width="${c.r.w.toFixed(1)}" height="${c.r.h.toFixed(1)}" rx="6"/></g>`;
+    if(i>0){const p=pts[i-1].c;tsvg+=`<g data-page="${esc(pts[i-1].page)}" data-page2="${esc(n.page)}" data-cards=""><path class="${t.id}" d="M ${p.x.toFixed(1)} ${p.y.toFixed(1)} L ${c.x.toFixed(1)} ${c.y.toFixed(1)}"/></g>`;}
     if(n.note){ // 포스트잇: 선의 중간에서 시작해 ±쪽으로 비켜 가며 카드·쪽·다른 포스트잇과 안 겹치는 자리
      const free=(x,y)=>{const r={x,y,w:NW,h:NH};return !cardRects0.some(o=>hit0(r,o))&&!pageRects0.some(o=>hit0(r,o))&&!noteRects.some(o=>hit0(r,o));};
      let spot=null;const p=i>0?pts[i-1].c:null;
@@ -406,7 +405,7 @@ function renderAllMemories(tiles){
       const P=pageBox.get(n.page);for(const [x,y] of [[P.x-NW-24,c.y-NH/2],[c.x-NW/2,P.y-NH-24],[P.x+P.width+24,c.y-NH/2],[c.x-NW/2,P.y+P.height+24],[P.x-NW-24,P.y],[P.x-NW-24,P.y+P.height-NH]])if(!spot&&free(x,y))spot={x,y};
       if(!spot)spot={x:P.x-NW-24,y:c.y-NH/2};}
      if(!spot){const x=p.x+(c.x-p.x)*.5-NW/2,y=p.y+(c.y-p.y)*.5-NH/2;spot={x,y};} // 못 찾으면 선 가운데(겹치더라도)
-     noteRects.push({x:spot.x,y:spot.y,w:NW,h:NH});notes+=`<div class="thread-note ${t.id}" data-thread="${t.id}" data-i="${i}" style="left:${spot.x.toFixed(1)}px;top:${spot.y.toFixed(1)}px">${bubbleHTML(n.note)}</div>`;}}}
+     noteRects.push({x:spot.x,y:spot.y,w:NW,h:NH});notes+=`<div class="thread-note ${t.id}" data-thread="${t.id}" data-i="${i}" data-page="${esc(i>0?pts[i-1].page:n.page)}" data-page2="${esc(n.page)}" data-cards="" style="left:${spot.x.toFixed(1)}px;top:${spot.y.toFixed(1)}px">${bubbleHTML(n.note)}</div>`;}}}
   let psvg='',plab='';
   for(const [pi,p] of (B.pairs||[]).entries()){const a=cutC(p.first.page,p.first.rect),b=cutC(p.last.page,p.last.rect);if(!a||!b)continue;
    psvg+=`<g class="pair" data-page="${esc(p.first.page)}" data-page2="${esc(p.last.page)}" data-cards=""><path d="M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${b.x.toFixed(1)} ${b.y.toFixed(1)}"/></g>`;
@@ -618,7 +617,8 @@ function renderAllMemories(tiles){
    h.style.left=spot.x+'px';h.style.top=spot.y+'px';placed.push({x:spot.x,y:spot.y,w,h:hh});focusHops.push(h);}}
   requestAnimationFrame(()=>{focusSvg.classList.add('in');for(const h of focusHops)h.classList.add('in');});refresh();};
  // 누름: 같은 것을 다시 누르거나 여백·Esc → 풀림(제자리로). 다른 것을 누르면 그것으로 다시 모임.
- wallHover={pin:key=>{if(key&&key[0]==='p'&&!byPage.has(key.slice(2)))key=null;if(key&&key===pinned)key=null;pinned=key;show(null);if(key)focus(key);else unfocus();}};
+ const threadLit=key=>{for(const el of layer.querySelectorAll('.thread-lines g.pin-on,.thread-note.pin-on'))el.classList.remove('pin-on');if(!key||key[0]!=='p')return;const pid=key.slice(2);for(const el of layer.querySelectorAll('.thread-lines g,.thread-note'))if(el.dataset.page===pid||el.dataset.page2===pid)el.classList.add('pin-on');};
+ wallHover={pin:key=>{if(key&&key[0]==='p'&&!byPage.has(key.slice(2)))key=null;if(key&&key===pinned)key=null;pinned=key;show(null);if(key)focus(key);else unfocus();threadLit(key);}};
  startCrossRouting(routerInput,finishRoutes);
  return {x:0,y:0,width:wallW,height:wallH,cards:nodes.size,cross:cross.length};
 }
