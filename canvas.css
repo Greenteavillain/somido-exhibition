@@ -234,7 +234,7 @@ body.canvas-mode{background:#fff;overflow:hidden}
 .wall-card-foot{display:none}
 
 /* all6 3단계: 모아 보기에서 컷 올림 테두리·관계없는 카드 흐림, 당겨 온 쪽까지의 실·짝 선 */
-.canvas-page .cut-hl{position:absolute;display:none;border:2px solid var(--ink);border-radius:6px;pointer-events:none;box-sizing:border-box}
+.canvas-page .cut-hl{position:absolute;display:none;border:2px solid var(--ink);border-radius:0;pointer-events:none;box-sizing:border-box} /* 10-20 작가: 각지게 */
 .canvas-memory-card.focus-on.cut-dim{opacity:.25}
 .canvas-memory-lines.focus-lines path.cook{stroke:var(--cook);stroke-dasharray:6 4;stroke-width:1.5}
 .canvas-memory-lines.focus-lines path.people{stroke:var(--ink);stroke-width:2.5}

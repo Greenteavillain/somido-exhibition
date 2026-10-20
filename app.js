@@ -294,7 +294,13 @@ function renderAllMemories(tiles){
   let ta=exitT(ar,a.x,a.y,ux,uy)+gap,tb=exitT(br,b.x,b.y,-ux,-uy)+gap;if(ta+tb>=L-4){ta=Math.max(0,L/2-2);tb=Math.max(0,L/2-2);}
   return [{x:+(a.x+ux*ta).toFixed(1),y:+(a.y+uy*ta).toFixed(1)},{x:+(b.x-ux*tb).toFixed(1),y:+(b.y-uy*tb).toFixed(1)}];};
  const cRect=id=>{const n=nodes.get(id),v=pos.get(id);return v?{x:v.x,y:v.y,w:n.w,h:n.h}:null;},cCenter=id=>{const r=cRect(id);return r?{x:r.x+r.w/2,y:r.y+r.h/2}:null;};
- const seg=(a,ar,b,br)=>{const z=clipSeg(a,ar,b,br);return `M ${z[0].x} ${z[0].y} L ${z[1].x} ${z[1].y}`;};
+ const seg=(a,ar,b,br,gap=GAP)=>{const z=clipSeg(a,ar,b,br,gap);return `M ${z[0].x} ${z[0].y} L ${z[1].x} ${z[1].y}`;};
+ // 실·짝 선(2026-10-20 작가 "선들이 컷 위로 올라오는 경우 앵간하면 안 그러면"): 매듭 컷의 좌표에서 상대 쪽이 있는 쪽의 '쪽 테두리 변'으로 곧장 나가 상대 쪽의 마주 보는 변으로.
+ //   가까운 변으로 나가면(clipSeg) 같은 쪽의 다른 컷 위를 가로질렀음. 두 쪽이 가로로 안 겹치면 옆변, 아니면 위·아랫변.
+ const edgeSeg=(a,ar,b,br)=>{const horiz=(br.x>=ar.x+ar.w)||(br.x+br.w<=ar.x);
+  if(horiz){const right=br.x>=ar.x+ar.w;return [{x:+(right?ar.x+ar.w:ar.x).toFixed(1),y:+a.y.toFixed(1)},{x:+(right?br.x:br.x+br.w).toFixed(1),y:+b.y.toFixed(1)}];}
+  const below=br.y>=ar.y+ar.h;return [{x:+a.x.toFixed(1),y:+(below?ar.y+ar.h:ar.y).toFixed(1)},{x:+b.x.toFixed(1),y:+(below?br.y:br.y+br.h).toFixed(1)}];};
+ const eseg=(a,ar,b,br)=>{const z=edgeSeg(a,ar,b,br);return `M ${z[0].x} ${z[0].y} L ${z[1].x} ${z[1].y}`;};
  const gapFor=text=>text?Math.max(HG,Math.min(194,Math.ceil(String(text).length*10.5)+14)):HG;
  const pages=B.book.pages.map(p=>p.id),chainsBy=new Map();
  for(const pid of pages){const cs=canvasPageChains(pid);if(cs.length)chainsBy.set(pid,cs);}
@@ -403,14 +409,14 @@ function renderAllMemories(tiles){
  // ── all6(2026-10-19): 실(요리·사람)과 짝 — 벽의 '실'은 멀리 떨어진 컷을 잇는 선이고 매듭마다 포스트잇이 선 중간에 붙는다(작가: "화살표 중간에 붙이기").
  //   B.threads[{id,name,nodes[{page,rect,stage,note}]}]: 컷 가운데를 차례로 곧은 선으로 잇고(요리 = 회색 점선, 사람 = 검정 실선), 매듭 컷엔 둥근 테두리, 포스트잇은 앞 매듭→이 매듭 선의 중간(카드·쪽과 겹치면 선을 따라 비켜 놓음).
  //   항상 보인다(벽처럼). B.pairs(앞에서 심어 둔 컷 ↔ 뒤에서 되돌아오는 컷)는 연한 점선이고 두 쪽 중 하나에 마우스를 올렸을 때만 보인다(data-page·data-page2).
- {const cutC=(pid,rect)=>{const P=pageBox.get(pid);return P?{x:P.x+(rect[0]+rect[2]/2)*P.width,y:P.y+(rect[1]+rect[3]/2)*P.height,r:{x:P.x+rect[0]*P.width,y:P.y+rect[1]*P.height,w:rect[2]*P.width,h:rect[3]*P.height}}:null;};
+ {const cutC=(pid,rect)=>{const P=pageBox.get(pid);return P?{x:P.x+(rect[0]+rect[2]/2)*P.width,y:P.y+(rect[1]+rect[3]/2)*P.height,r:{x:P.x+rect[0]*P.width,y:P.y+rect[1]*P.height,w:rect[2]*P.width,h:rect[3]*P.height},pr:{x:P.x,y:P.y,w:P.width,h:P.height}}:null;};
   const cardRects0=[...pos].map(([id,v])=>{const n=nodes.get(id);return {x:v.x,y:v.y,w:n.w,h:n.h};}),pageRects0=[...pageBox.values()].map(P=>({x:P.x,y:P.y,w:P.width,h:P.height}));
   const hit0=(a,b)=>a.x<b.x+b.w-1&&b.x<a.x+a.w-1&&a.y<b.y+b.h-1&&b.y<a.y+a.h-1;
   let tsvg='',notes='';const NW=150,NH=150,noteRects=[];
   for(const t of (B.threads||[])){const pts=t.nodes.map(n=>({...n,c:cutC(n.page,n.rect)})).filter(n=>n.c);
    for(let i=0;i<pts.length;i++){const n=pts[i],c=n.c;
-    tsvg+=`<g data-page="${esc(n.page)}" data-cards=""><rect class="knot ${t.id}" x="${c.r.x.toFixed(1)}" y="${c.r.y.toFixed(1)}" width="${c.r.w.toFixed(1)}" height="${c.r.h.toFixed(1)}" rx="6"/></g>`;
-    if(i>0){const p=pts[i-1].c;tsvg+=`<g data-page="${esc(pts[i-1].page)}" data-page2="${esc(n.page)}" data-cards=""><path class="${t.id}" d="${seg(p,p.r,c,c.r)}"/></g>`;}
+    tsvg+=`<g data-page="${esc(n.page)}" data-cards=""><rect class="knot ${t.id}" x="${c.r.x.toFixed(1)}" y="${c.r.y.toFixed(1)}" width="${c.r.w.toFixed(1)}" height="${c.r.h.toFixed(1)}"/></g>`;
+    if(i>0){const p=pts[i-1].c;tsvg+=`<g data-page="${esc(pts[i-1].page)}" data-page2="${esc(n.page)}" data-cards=""><path class="${t.id}" d="${eseg(p,p.pr,c,c.pr)}"/></g>`;} // 실 선은 여백 0(작가)
     if(n.note){ // 포스트잇: 선의 중간에서 시작해 ±쪽으로 비켜 가며 카드·쪽·다른 포스트잇과 안 겹치는 자리
      const free=(x,y)=>{const r={x,y,w:NW,h:NH};return !cardRects0.some(o=>hit0(r,o))&&!pageRects0.some(o=>hit0(r,o))&&!noteRects.some(o=>hit0(r,o));};
      let spot=null;const p=i>0?pts[i-1].c:null;
@@ -422,7 +428,7 @@ function renderAllMemories(tiles){
      noteRects.push({x:spot.x,y:spot.y,w:NW,h:NH});notes+=`<div class="thread-note ${t.id}" data-thread="${t.id}" data-i="${i}" data-page="${esc(i>0?pts[i-1].page:n.page)}" data-page2="${esc(n.page)}" data-cards="" style="left:${spot.x.toFixed(1)}px;top:${spot.y.toFixed(1)}px">${bubbleHTML(n.note)}</div>`;}}}
   let psvg='',plab='';
   for(const [pi,p] of (B.pairs||[]).entries()){const a=cutC(p.first.page,p.first.rect),b=cutC(p.last.page,p.last.rect);if(!a||!b)continue;
-   psvg+=`<g class="pair" data-page="${esc(p.first.page)}" data-page2="${esc(p.last.page)}" data-cards=""><path d="${seg(a,a.r,b,b.r)}"/></g>`;
+   psvg+=`<g class="pair" data-page="${esc(p.first.page)}" data-page2="${esc(p.last.page)}" data-cards=""><path d="${eseg(a,a.pr,b,b.pr)}"/></g>`;
    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;plab+=`<div class="chain-hop pair-hop" data-page="${esc(p.first.page)}" data-page2="${esc(p.last.page)}" data-cards="" style="left:${(mx-90).toFixed(1)}px;top:${(my-20).toFixed(1)}px;width:180px">${esc(p.name)}<br><span>${esc(p.meaning)}</span></div>`;}
   layer.insertAdjacentHTML('afterbegin',`<svg class="wall-lines thread-lines" aria-hidden="true">${tsvg}</svg><svg class="wall-lines pair-lines" aria-hidden="true">${psvg}</svg>`); // canvas-memory-lines 클래스를 주면 finishRoutes의 $('.canvas-memory-lines')가 이걸 집어 화살표를 여기 넣고 defs를 못 찾아 죽음
   layer.insertAdjacentHTML('beforeend',notes+plab);
@@ -581,12 +587,14 @@ function renderAllMemories(tiles){
   // all6(2026-10-20 작가 "클릭하면 컷 사이 연결해주는 굵은 선… 왜 안 오는 것 같지?" / "연결되는 컷도 앞뒤로 당겨오면"): 쪽 단위 과정에서도
   //   실 앞뒤 쪽·짝 쪽을 당겨 온다 — 앞 쪽은 묶음 왼쪽 끝 너머, 뒤 쪽은 쪽 오른쪽. 실 선은 매듭 컷 가운데→가운데(테두리 여백). 컷 과정('q')에선 안 당김
   const lines=[];
-  if(key[0]==='p'){const pid=key.slice(2),PN=N.get('p'+pid);let lx=Math.min(...[...N.values()].map(n=>n.fx))-PW-120,rx=PN.fx+PN.w+120,ly=PN.fy,ry=PN.fy;
-   const pull=(qid,side)=>{const k='p'+qid;if(N.has(k))return N.get(k);const Q=pageBox.get(qid);if(!Q||!spreadEl.get(qid))return null;const nn={k,kind:'page',pid:qid,el:spreadEl.get(qid),w:PW,h:PH,ox:Q.x,oy:Q.y,fx:side<0?lx:rx,fy:side<0?ly:ry,succ:new Set()};if(side<0)ly+=PH+40;else ry+=PH+40;N.set(k,nn);return nn;};
-   for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid)continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect}});}}}
-   for(const p of (B.pairs||[])){const me=p.first.page===pid?p.first:p.last.page===pid?p.last:null;if(!me)continue;const o=me===p.first?p.last:p.first;if(o.page===pid)continue;if(pull(o.page,me===p.first?1:-1))lines.push({cls:'pair',a:{pid,rect:me.rect},b:{pid:o.page,rect:o.rect}});}}
+  if(key[0]==='p'||key[0]==='q'){const pid=key[0]==='p'?key.slice(2):key.split(':')[1],PN=N.get('p'+pid);const onlyCut=key[0]==='q'?((CUTS[pid]||[])[+key.split(':')[2]]||[])[4]:null; // 컷 과정이면 그 컷이 매듭일 때만
+   // 앞 쪽은 쪽 '위'에(왼쪽엔 카드 사슬이 있어 선이 카드 위를 지나감), 뒤 쪽은 오른쪽에
+   let ux=PN.fx,uy=PN.fy-PH-60,rx=PN.fx+PN.w+120,ry=PN.fy;
+   const pull=(qid,side)=>{const k='p'+qid;if(N.has(k))return N.get(k);const Q=pageBox.get(qid);if(!Q||!spreadEl.get(qid))return null;const nn={k,kind:'page',pid:qid,el:spreadEl.get(qid),w:PW,h:PH,ox:Q.x,oy:Q.y,fx:side<0?ux:rx,fy:side<0?uy:ry,succ:new Set()};if(side<0)uy-=PH+40;else ry+=PH+40;N.set(k,nn);return nn;};
+   for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid||(onlyCut&&ns[i].cut!==onlyCut))continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect}});}}}
+   for(const p of (B.pairs||[])){const me=p.first.page===pid?p.first:p.last.page===pid?p.last:null;if(!me||(onlyCut&&me.cut!==onlyCut))continue;const o=me===p.first?p.last:p.first;if(o.page===pid)continue;if(pull(o.page,me===p.first?1:-1))lines.push({cls:'pair',a:{pid,rect:me.rect},b:{pid:o.page,rect:o.rect}});}}
   const ccL=pt=>{const n=N.get('p'+pt.pid),r={x:n.fx+pt.rect[0]*n.w,y:n.fy+pt.rect[1]*n.h,w:pt.rect[2]*n.w,h:pt.rect[3]*n.h};return {x:r.x+r.w/2,y:r.y+r.h/2,r};};
-  const threadLines=lines.map(l=>{const a=ccL(l.a),b=ccL(l.b),z=clipSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1]};});
+  const threadLines=lines.map(l=>{const a=ccL(l.a),b=ccL(l.b),z=edgeSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1]};});
   // 5) 화살표: 모인 자리로 작은 판을 만들어 길찾기(카드·쪽을 피해 가로·세로로만)
   const nodesArr=[...N.values()],minX=Math.min(...nodesArr.map(n=>n.fx))-160,minY=Math.min(...nodesArr.map(n=>n.fy))-160;
   const maxX=Math.max(...nodesArr.map(n=>n.fx+n.w))+160,maxY=Math.max(...nodesArr.map(n=>n.fy+n.h))+160;
@@ -666,7 +674,7 @@ function renderAllMemories(tiles){
   for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid)continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect}});}}}
   for(const p of (B.pairs||[])){const me=p.first.page===pid?p.first:p.last.page===pid?p.last:null;if(!me)continue;const o=me===p.first?p.last:p.first;if(o.page===pid)continue;if(pull(o.page,me===p.first?1:-1))lines.push({cls:'pair',a:{pid,rect:me.rect},b:{pid:o.page,rect:o.rect}});}
   const cc=pt=>{const n=N.get('p'+pt.pid),r={x:n.fx+pt.rect[0]*n.w,y:n.fy+pt.rect[1]*n.h,w:pt.rect[2]*n.w,h:pt.rect[3]*n.h};return {x:r.x+r.w/2,y:r.y+r.h/2,r};};
-  return {N,paths:[],lines:lines.map(l=>{const a=cc(l.a),b=cc(l.b),z=clipSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1]};}),grouped:true,pid};
+  return {N,paths:[],lines:lines.map(l=>{const a=cc(l.a),b=cc(l.b),z=edgeSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1]};}),grouped:true,pid};
  };
  const cutHighlight=(pg,ci)=>{const el=pageEls.get(pg);if(!el)return;let box=el.querySelector('.cut-hl');if(!box){box=document.createElement('i');box.className='cut-hl';el.appendChild(box);}
   const cut=(CUTS[pg]||[])[ci];if(ci<0||!cut){box.style.display='none';for(const m of moved)m.classList.remove('cut-dim');return;}
