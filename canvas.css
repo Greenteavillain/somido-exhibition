@@ -243,10 +243,6 @@ body.canvas-mode{background:#fff;overflow:hidden}
 .canvas-region-dot,.region-dot{display:none}
 
 /* 매직마우스용(10-20): 확대·축소·처음 단추(오른쪽 아래 — 왼쪽 아래 60pt는 키오스크 숨은 패턴 자리), 글자 선택·그림 끌기 금지, 누를 수 있는 것은 손가락 커서 */
-#zoom-ui{position:absolute;right:22px;bottom:22px;z-index:40;display:flex;flex-direction:column;gap:10px}
-#zoom-ui button{width:56px;height:56px;border-radius:50%;border:1.5px solid var(--ink);background:rgba(255,255,255,.92);color:var(--ink);font:400 28px/1 Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;cursor:pointer;padding:0;box-shadow:none}
-#zoom-ui button:hover{background:#fff}
-#zoom-ui button[data-z="home"]{font-size:24px}
 html,body,.atlas-viewport{user-select:none;-webkit-user-select:none}
 .atlas-world img{-webkit-user-drag:none;user-drag:none}
 .canvas-page{cursor:pointer}

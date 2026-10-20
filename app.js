@@ -158,12 +158,8 @@ function renderCanvas(){
  startCamera={...canvasController.getCamera()}; // 자동 복귀·'처음' 단추용
  // ── 매직마우스용(2026-10-20 작가 "전시장엔 애플마우스만"): 핀치가 없어 확대·축소는 ① 오른쪽 아래 큰 단추 ② 더블클릭(그 자리 1.6배, 빈 곳 더블클릭은 처음 배율)으로.
  //    왼쪽 아래 60pt 칸은 키오스크 앱(somido-kiosk)의 숨은 패턴 자리라 단추를 오른쪽 아래에 둠. 3분 동안 입력이 없으면 모임을 풀고 처음 화면으로(키오스크의 5분 초기화보다 먼저).
- {const ui=document.createElement('div');ui.id='zoom-ui';ui.innerHTML='<button data-z="in" aria-label="확대">+</button><button data-z="out" aria-label="축소">−</button><button data-z="home" aria-label="처음 화면">⌂</button>';$('.canvas-shell').appendChild(ui);
-  const center=()=>{const r=viewport.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];};
-  ui.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;e.stopPropagation();const [cx,cy]=center();
-   if(b.dataset.z==='in')canvasController.zoomAt(1.35,cx,cy);else if(b.dataset.z==='out')canvasController.zoomAt(1/1.35,cx,cy);else{if(wallHover)wallHover.pin(null);canvasController.setCamera(startCamera);}});
-  ui.addEventListener('pointerdown',e=>e.stopPropagation());ui.addEventListener('wheel',e=>e.stopPropagation(),{passive:true});
-  viewport.addEventListener('dblclick',e=>{if(e.target.closest('#zoom-ui'))return;e.preventDefault();const onPage=e.target.closest('.canvas-page'),onCard=e.target.closest('.canvas-memory-card');
+ { // 화면에 단추는 없음(작가 10-20 "그냥 보여주기만"). 확대 = 더블클릭, 처음으로 = 빈 곳 더블클릭
+  viewport.addEventListener('dblclick',e=>{e.preventDefault();const onPage=e.target.closest('.canvas-page'),onCard=e.target.closest('.canvas-memory-card');
    if(onPage||onCard){canvasController.zoomAt(1.6,e.clientX,e.clientY);if(onPage&&wallHover){const pid=onPage.dataset.canvasPage;if(!(pinned||'').includes(pid))wallHover.pin('p:'+pid);}} // 쪽 위 더블클릭 = 확대 + 그 쪽 모임 유지(클릭 두 번으로 풀린 걸 되돌림)
    else{if(wallHover)wallHover.pin(null);canvasController.setCamera(startCamera);}});
   let lastInput=performance.now();const IDLE_MS=3*60*1000;
