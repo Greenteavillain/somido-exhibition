@@ -19,7 +19,7 @@ const emptyAuthor=()=>({schemaVersion:1,sources:[],anchors:[],sourcePatches:{},a
 const compatibleAuthor=v=>v.bookHash===B.book.sourceHash||(!v.bookHash&&!v.anchors?.length&&!Object.keys(v.anchorPatches||{}).length);
 let author=clone(B.author), sources=[], anchors=[], sourceById, anchorById, spreads=[], serverRevision=null, api=false, saveChain=Promise.resolve(), restorePending=null;
 const localKey='somido-all6-author-v1';
-const EDIT_MODE=new URLSearchParams(location.search).has('edit'); // all6: 전시장에선 아무것도 못 바꾸게 — 포스트잇 옮기기·E/O 편집은 주소에 ?edit 가 있을 때만 // all6: all4의 브라우저 임시 저장(옛 구술 장면 편집)이 섞이지 않게 키를 바꿈
+const EDIT_MODE=false; // all6: 전시장에선 아무것도 못 바꾸게 — E/O 편집 꺼짐 // all6: all4의 브라우저 임시 저장(옛 구술 장면 편집)이 섞이지 않게 키를 바꿈
 const publicOverrides = new Map();
 for (const a of B.anchors) for (const l of a.links) if(l.publicQuoteIsRedacted){const previous=publicOverrides.get(l.sourceId)||[];if(!previous.includes(l.publicQuote))previous.push(l.publicQuote);publicOverrides.set(l.sourceId,previous);}
 function validLink(l){ return l.status !== 'rejected' && (state.candidates || l.status==='confirmed'); }
@@ -421,13 +421,14 @@ function renderAllMemories(tiles){
     if(n.note){ // 포스트잇: 선의 중간에서 시작해 ±쪽으로 비켜 가며 카드·쪽·다른 포스트잇과 안 겹치는 자리
      const free=(x,y)=>{const r={x,y,w:NW,h:NH};return !cardRects0.some(o=>hit0(r,o))&&!pageRects0.some(o=>hit0(r,o))&&!noteRects.some(o=>hit0(r,o));};
      let spot=null;const p=i>0?pts[i-1].c:null;
-     if(p){const L=Math.hypot(c.x-p.x,c.y-p.y)||1,nx=-(c.y-p.y)/L,ny=(c.x-p.x)/L; // 선을 따라 가운데부터 바깥으로, 자리마다 선 위 → 양옆(수직 방향 NW/2+12)
-      for(let k=0;k<40&&!spot;k++){const tt=.5+(k%2?-1:1)*Math.ceil(k/2)*.045;if(tt<.08||tt>.92)continue;const cx=p.x+(c.x-p.x)*tt,cy=p.y+(c.y-p.y)*tt;
-       for(const off of [0,NW/2+12,-(NW/2+12)]){const x=cx+nx*off-NW/2,y=cy+ny*off-NH/2;if(free(x,y)){spot={x,y};break;}}}}
+     if(p){const L=Math.hypot(c.x-p.x,c.y-p.y)||1,nx=-(c.y-p.y)/L,ny=(c.x-p.x)/L,step=NW/2+12; // 선을 따라 가운데부터 바깥으로, 자리마다 선 위 → 양옆 1·2·3칸
+      for(const off of [0,step,-step,2*step,-2*step,3*step,-3*step]){for(let k=0;k<40&&!spot;k++){const tt=.5+(k%2?-1:1)*Math.ceil(k/2)*.045;if(tt<.08||tt>.92)continue;const cx=p.x+(c.x-p.x)*tt,cy=p.y+(c.y-p.y)*tt;const x=cx+nx*off-NW/2,y=cy+ny*off-NH/2;if(free(x,y)){spot={x,y};break;}}if(spot)break;}}
      else{ // 첫 매듭(앞 선이 없음): 그 컷의 쪽 바깥 — 왼쪽, 위, 오른쪽, 아래 순으로 빈 자리
       const P=pageBox.get(n.page);for(const [x,y] of [[P.x-NW-24,c.y-NH/2],[c.x-NW/2,P.y-NH-24],[P.x+P.width+24,c.y-NH/2],[c.x-NW/2,P.y+P.height+24],[P.x-NW-24,P.y],[P.x-NW-24,P.y+P.height-NH]])if(!spot&&free(x,y))spot={x,y};
       if(!spot)spot={x:P.x-NW-24,y:c.y-NH/2};}
-     if(!spot){const x=p.x+(c.x-p.x)*.5-NW/2,y=p.y+(c.y-p.y)*.5-NH/2;spot={x,y};const r={x,y,w:NW,h:NH};for(const o of pageRects0)if(hit0(r,o)){spot={x:o.x+o.w+12,y};break;}} // 못 찾으면 선 가운데, 쪽 위면 쪽 오른쪽으로
+     if(!spot){const mx=(p?p.x+(c.x-p.x)*.5:c.x),my=(p?p.y+(c.y-p.y)*.5:c.y); // 그래도 없으면 선 가운데 둘레를 나선으로(30px씩, 반지름 900까지) — 빈 곳은 반드시 있음
+      for(let r=30;r<=900&&!spot;r+=30){for(let a=0;a<360&&!spot;a+=20){const x=mx+r*Math.cos(a*Math.PI/180)-NW/2,y=my+r*Math.sin(a*Math.PI/180)-NH/2;if(free(x,y))spot={x,y};}}
+      if(!spot)spot={x:mx-NW/2,y:my-NH/2};}
      noteRects.push({x:spot.x,y:spot.y,w:NW,h:NH});notes+=`<div class="thread-note ${t.id}" data-thread="${t.id}" data-i="${i}" data-page="${esc(i>0?pts[i-1].page:n.page)}" data-page2="${esc(n.page)}" data-cards="" data-bx="${spot.x.toFixed(1)}" data-by="${spot.y.toFixed(1)}" style="left:${spot.x.toFixed(1)}px;top:${spot.y.toFixed(1)}px">${bubbleHTML(n.note)}</div>`;}}}
   let psvg='',plab='';
   for(const [pi,p] of (B.pairs||[]).entries()){const a=cutC(p.first.page,p.first.rect),b=cutC(p.last.page,p.last.rect);if(!a||!b)continue;
@@ -436,15 +437,7 @@ function renderAllMemories(tiles){
   layer.insertAdjacentHTML('afterbegin',`<svg class="wall-lines thread-lines" aria-hidden="true">${tsvg}</svg><svg class="wall-lines pair-lines" aria-hidden="true">${psvg}</svg>`); // canvas-memory-lines 클래스를 주면 finishRoutes의 $('.canvas-memory-lines')가 이걸 집어 화살표를 여기 넣고 defs를 못 찾아 죽음
   layer.insertAdjacentHTML('beforeend',notes+plab);
   // 작가(10-20) "포스트잇이 위치조절이 되어야": 보일 때 끌어서 옮길 수 있고, 옮긴 거리는 이 브라우저에 저장(localStorage somido-all6-notes, 자동 자리 기준). 콘솔 somidoNotesExport()로 JSON 복사
-  // 전시장에선 못 옮김(관람객이 흐트러뜨린 게 남지 않게). 확정 자리는 레포 파일(B.noteOffsets ← data/note_offsets.json)에서만 읽고, ?edit 일 때만 끌어서 localStorage에 임시 저장 → somidoNotesExport()로 뽑아 파일에 넣음
-  const NOTE_KEY='somido-all6-notes';let savedNotes=Object.assign({},B.noteOffsets||{});if(EDIT_MODE){try{Object.assign(savedNotes,JSON.parse(localStorage.getItem(NOTE_KEY)||'{}'));}catch(e){}}
-  for(const el of layer.querySelectorAll('.thread-note')){const k=el.dataset.thread+':'+el.dataset.i,o=savedNotes[k];if(o){el.style.left=(parseFloat(el.dataset.bx)+o[0])+'px';el.style.top=(parseFloat(el.dataset.by)+o[1])+'px';}
-   if(!EDIT_MODE)continue;el.setAttribute('data-canvas-no-pan','');el.classList.add('editable');
-   el.addEventListener('pointerdown',e=>{if(e.button||el.classList.contains('moved-on'))return;e.stopPropagation();e.preventDefault();const sc=canvasCamera?canvasCamera.scale:1,x0=e.clientX,y0=e.clientY,l0=parseFloat(el.style.left),t0=parseFloat(el.style.top);let dragged=false;
-    const mv=ev=>{const dx=(ev.clientX-x0)/sc,dy=(ev.clientY-y0)/sc;if(Math.abs(dx)+Math.abs(dy)>2)dragged=true;el.style.left=(l0+dx)+'px';el.style.top=(t0+dy)+'px';};
-    const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);if(!dragged)return;savedNotes[k]=[+(parseFloat(el.style.left)-parseFloat(el.dataset.bx)).toFixed(1),+(parseFloat(el.style.top)-parseFloat(el.dataset.by)).toFixed(1)];try{localStorage.setItem(NOTE_KEY,JSON.stringify(savedNotes));}catch(e){}};
-    window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});}
-  window.somidoNotesExport=()=>JSON.stringify(savedNotes);
+  // 포스트잇은 손으로 못 옮김(전시). 자리는 아래 자동 배치가 책임짐 — 쪽·카드·다른 포스트잇을 절대 안 덮게
   layer.dataset.threads=(B.threads||[]).map(t=>t.id+':'+t.nodes.length).join(' ');}
  // 4) 다른 쪽 카드에서 오는 화살표 — all2(2026-10-03): 길찾기만 cross-router.js의 routeCrossArrows로 바꾼 판.
  //    작가 지적 "화살표끼리 너무 겹치는 듯" → 오프라인 실험(4가지 방법 시험·반박검증)에서 고른 '줄기 묶기 + 협상식 재배선'.
@@ -642,9 +635,15 @@ function renderAllMemories(tiles){
   for(const n of next){const o={x:Math.round((n.fx-n.ox)*100)/100,y:Math.round((n.fy-n.oy)*100)/100}; /* 반올림: 누른 것의 0이 -2e-13 같은 찌꺼기가 되지 않게 */clearTimeout(n.el._backT);n.el.classList.remove('focus-back');n.el.classList.add('focus-on');curOff.set(n.el,o);if(n.kind==='page')n.el._off=o;n.el.style.transform=`translate(${o.x}px,${o.y}px)`;}
   // 선·문구(도착 무렵 나타남)
   focusSvg.innerHTML=F.paths.map(({z})=>`<path d="${shorten('M '+z.map(p=>p.x+' '+p.y).join(' L '))}" marker-end="url(#chain-arrow)"/>`).join('')+(F.lines||[]).map(l=>`<path class="${l.cls}" d="M ${l.a.x.toFixed(1)} ${l.a.y.toFixed(1)} L ${l.b.x.toFixed(1)} ${l.b.y.toFixed(1)}"/>`).join(''); // all6: 당겨 온 쪽까지의 실·짝 선
-  for(const el of movedNotes){el.style.transform='';el.classList.remove('moved-on');}movedNotes=[];
+  for(const el of movedNotes){el.style.transform='';el.classList.remove('moved-on');}movedNotes=[];const placedN=[];
   for(const l of (F.lines||[])){if(!l.note)continue;const el=layer.querySelector(`.thread-note[data-thread="${l.note[0]}"][data-i="${l.note[1]}"]`);if(!el)continue;const mx=(l.a.x+l.b.x)/2,my=(l.a.y+l.b.y)/2,lx=parseFloat(el.style.left),ly=parseFloat(el.style.top),vert=Math.abs(l.b.y-l.a.y)>Math.abs(l.b.x-l.a.x);
-   const nx=mx-55,ny=my-55; // 선 가운데(벽의 포스트잇처럼, 110px). 틈을 넓혀 쪽을 안 덮음
+   // 선 가운데(벽의 포스트잇처럼) — 모인 쪽·카드를 덮으면 선을 따라/양옆/나선으로 비켜 놓음
+   const S=110,boxes=[...F.N.values()].map(n=>({x:n.fx,y:n.fy,w:n.w,h:n.h})),hitB=(a,b)=>a.x<b.x+b.w-1&&b.x<a.x+a.w-1&&a.y<b.y+b.h-1&&b.y<a.y+a.h-1;
+   const okN=(x,y)=>{const r={x,y,w:S,h:S};return !boxes.some(b=>hitB(r,b))&&!placedN.some(b=>hitB(r,b));};
+   const L2=Math.hypot(l.b.x-l.a.x,l.b.y-l.a.y)||1,ux2=(l.b.x-l.a.x)/L2,uy2=(l.b.y-l.a.y)/L2,px2=-uy2,py2=ux2;let nx=null,ny=null;
+   for(const off of [0,S/2+12,-(S/2+12),S+24,-(S+24)]){for(let k=0;k<20&&nx===null;k++){const tt=.5+(k%2?-1:1)*Math.ceil(k/2)*.08;if(tt<.05||tt>.95)continue;const cx=l.a.x+(l.b.x-l.a.x)*tt+px2*off,cy=l.a.y+(l.b.y-l.a.y)*tt+py2*off;if(okN(cx-S/2,cy-S/2)){nx=cx-S/2;ny=cy-S/2;}}if(nx!==null)break;}
+   for(let r=40;r<=800&&nx===null;r+=30){for(let a=0;a<360&&nx===null;a+=20){const x=mx+r*Math.cos(a*Math.PI/180)-S/2,y=my+r*Math.sin(a*Math.PI/180)-S/2;if(okN(x,y)){nx=x;ny=y;}}}
+   if(nx===null){nx=mx-S/2;ny=my-S/2;}placedN.push({x:nx,y:ny,w:S,h:S});
    el.style.transform=`translate(${(nx-lx).toFixed(1)}px,${(ny-ly).toFixed(1)}px) rotate(-1.5deg)`;el.classList.add('moved-on');movedNotes.push(el);} // pin-on은 threadLit(null)이 지우므로 다른 클래스 // 매듭 포스트잇을 새 선 가운데로
   const boxes=next.map(n=>({x:n.fx,y:n.fy,w:n.w,h:n.h})),segs=[];for(const {z} of F.paths)for(let k=0;k+1<z.length;k++)segs.push({x:Math.min(z[k].x,z[k+1].x)-2,y:Math.min(z[k].y,z[k+1].y)-2,w:Math.abs(z[k+1].x-z[k].x)+4,h:Math.abs(z[k+1].y-z[k].y)+4});
   const hit=(a,b)=>a.x<b.x+b.w-1&&b.x<a.x+a.w-1&&a.y<b.y+b.h-1&&b.y<a.y+a.h-1,placed=[],done=new Set();
