@@ -213,7 +213,7 @@ body.canvas-mode{background:#fff;overflow:hidden}
 /* 10-19 작가 "선들은 평소에는 안 보이게. 선에 달린 포스트잇도 마찬가지. 관련된 컷 클릭해서 선이 보이게 될 때 보이면 충분" → 실·매듭·포스트잇은 쪽에 올리거나(.on) 눌러 모았을 때(.pin-on)만 */
 .wall-lines.thread-lines g,.thread-note{opacity:0;transition:opacity .2s}
 .wall-lines.thread-lines g.on,.wall-lines.thread-lines g.pin-on,.thread-note.on,.thread-note.pin-on{opacity:1}
-.thread-note.pin-on{z-index:10}
+.thread-note.pin-on,.thread-note.moved-on{z-index:10;opacity:1}
 /* 짝: 두 쪽 중 하나에 올렸을 때만, 연한 점선 + 이름·뜻 */
 .wall-lines.pair-lines g.pair{opacity:0;transition:opacity .2s}
 .wall-lines.pair-lines g.pair.on{opacity:1}

@@ -591,10 +591,10 @@ function renderAllMemories(tiles){
    // 앞 쪽은 쪽 '위'에(왼쪽엔 카드 사슬이 있어 선이 카드 위를 지나감), 뒤 쪽은 오른쪽에
    let ux=PN.fx,uy=PN.fy-PH-60,rx=PN.fx+PN.w+120,ry=PN.fy;
    const pull=(qid,side)=>{const k='p'+qid;if(N.has(k))return N.get(k);const Q=pageBox.get(qid);if(!Q||!spreadEl.get(qid))return null;const nn={k,kind:'page',pid:qid,el:spreadEl.get(qid),w:PW,h:PH,ox:Q.x,oy:Q.y,fx:side<0?ux:rx,fy:side<0?uy:ry,succ:new Set()};if(side<0)uy-=PH+40;else ry+=PH+40;N.set(k,nn);return nn;};
-   for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid||(onlyCut&&ns[i].cut!==onlyCut))continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect}});}}}
+   for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid||(onlyCut&&ns[i].cut!==onlyCut))continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect},note:[t.id,Math.max(i,j)]});}}}
    for(const p of (B.pairs||[])){const me=p.first.page===pid?p.first:p.last.page===pid?p.last:null;if(!me||(onlyCut&&me.cut!==onlyCut))continue;const o=me===p.first?p.last:p.first;if(o.page===pid)continue;if(pull(o.page,me===p.first?1:-1))lines.push({cls:'pair',a:{pid,rect:me.rect},b:{pid:o.page,rect:o.rect}});}}
   const ccL=pt=>{const n=N.get('p'+pt.pid),r={x:n.fx+pt.rect[0]*n.w,y:n.fy+pt.rect[1]*n.h,w:pt.rect[2]*n.w,h:pt.rect[3]*n.h};return {x:r.x+r.w/2,y:r.y+r.h/2,r};};
-  const threadLines=lines.map(l=>{const a=ccL(l.a),b=ccL(l.b),z=edgeSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1]};});
+  const threadLines=lines.map(l=>{const a=ccL(l.a),b=ccL(l.b),z=edgeSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1],note:l.note};});
   // 5) 화살표: 모인 자리로 작은 판을 만들어 길찾기(카드·쪽을 피해 가로·세로로만)
   const nodesArr=[...N.values()],minX=Math.min(...nodesArr.map(n=>n.fx))-160,minY=Math.min(...nodesArr.map(n=>n.fy))-160;
   const maxX=Math.max(...nodesArr.map(n=>n.fx+n.w))+160,maxY=Math.max(...nodesArr.map(n=>n.fy+n.h))+160;
@@ -618,7 +618,7 @@ function renderAllMemories(tiles){
  // 선은 매번 '안 보임'에서 다시 시작해야 도착 무렵 서서히 나타난다(검토에서 확인: 두 번째부터 누르자마자 보였음). transition을 잠깐 끄고 지워야 1→0 사라짐이 끼어들지 않는다.
  const resetLines=()=>{focusSvg.style.transition='none';focusSvg.classList.remove('in');focusSvg.innerHTML='';void focusSvg.getBoundingClientRect();focusSvg.style.transition='';for(const h of focusHops)h.remove();focusHops=[];};
  const refresh=()=>{if(canvasController)canvasController.setCamera(canvasController.getCamera());}; // 쪽 이미지(썸네일/원본)를 옮겨진 자리 기준으로 다시 고르게
- const unfocus=()=>{if(lastGrouped){cutHighlight(lastGrouped,-1);lastGrouped=null;}groupedPid=null;sendBack(moved);moved=[];resetLines();world.classList.remove('focusing');returningUntil=performance.now()+SPRING_MS+100;refresh();
+ const unfocus=()=>{for(const el of movedNotes){el.style.transform='';el.classList.remove('moved-on');}movedNotes=[];if(lastGrouped){cutHighlight(lastGrouped,-1);lastGrouped=null;}groupedPid=null;sendBack(moved);moved=[];resetLines();world.classList.remove('focusing');returningUntil=performance.now()+SPRING_MS+100;refresh();
   // 다 돌아온 뒤, 커서가 어떤 쪽·카드 위에 있으면 그 마우스 올림을 다시 켠다(풀린 직후 커서 위치와 어긋나던 것)
   setTimeout(rehover,SPRING_MS+120);};
  const focus=key=>{const F=(key[0]==='p'&&shouldGroup(key.slice(2)))?groupLayout(key.slice(2)):focusLayout(key);layer.dataset.focusKey=key;layer.dataset.grouped=String(!!(F&&F.grouped));if(key[0]==='p')layer.dataset.pageInfo=(chainsBy.get(key.slice(2))||[]).length+'/'+pageRecords(key.slice(2)).size; /* 확인용 */ if(lastGrouped){cutHighlight(lastGrouped,-1);lastGrouped=null;}groupedPid=F&&F.grouped?F.pid:null;if(groupedPid)lastGrouped=groupedPid;
@@ -628,7 +628,11 @@ function renderAllMemories(tiles){
   moved=next.map(n=>n.el);world.classList.add('focusing');
   for(const n of next){const o={x:Math.round((n.fx-n.ox)*100)/100,y:Math.round((n.fy-n.oy)*100)/100}; /* 반올림: 누른 것의 0이 -2e-13 같은 찌꺼기가 되지 않게 */clearTimeout(n.el._backT);n.el.classList.remove('focus-back');n.el.classList.add('focus-on');curOff.set(n.el,o);if(n.kind==='page')n.el._off=o;n.el.style.transform=`translate(${o.x}px,${o.y}px)`;}
   // 선·문구(도착 무렵 나타남)
-  focusSvg.innerHTML=F.paths.map(({z})=>`<path d="${shorten('M '+z.map(p=>p.x+' '+p.y).join(' L '))}" marker-end="url(#chain-arrow)"/>`).join('')+(F.lines||[]).map(l=>`<path class="${l.cls}" d="M ${l.a.x.toFixed(1)} ${l.a.y.toFixed(1)} L ${l.b.x.toFixed(1)} ${l.b.y.toFixed(1)}"/>`).join(''); // all6: 모아 보기의 실·짝 선
+  focusSvg.innerHTML=F.paths.map(({z})=>`<path d="${shorten('M '+z.map(p=>p.x+' '+p.y).join(' L '))}" marker-end="url(#chain-arrow)"/>`).join('')+(F.lines||[]).map(l=>`<path class="${l.cls}" d="M ${l.a.x.toFixed(1)} ${l.a.y.toFixed(1)} L ${l.b.x.toFixed(1)} ${l.b.y.toFixed(1)}"/>`).join(''); // all6: 당겨 온 쪽까지의 실·짝 선
+  for(const el of movedNotes){el.style.transform='';el.classList.remove('moved-on');}movedNotes=[];
+  for(const l of (F.lines||[])){if(!l.note)continue;const el=layer.querySelector(`.thread-note[data-thread="${l.note[0]}"][data-i="${l.note[1]}"]`);if(!el)continue;const mx=(l.a.x+l.b.x)/2,my=(l.a.y+l.b.y)/2,lx=parseFloat(el.style.left),ly=parseFloat(el.style.top),vert=Math.abs(l.b.y-l.a.y)>Math.abs(l.b.x-l.a.x);
+   const nx=vert?mx+12:mx-75,ny=vert?my-75:my+12; // 세로 선이면 선 오른쪽, 가로 선이면 선 아래(선 위에 얹으면 쪽을 덮음)
+   el.style.transform=`translate(${(nx-lx).toFixed(1)}px,${(ny-ly).toFixed(1)}px) rotate(-1.5deg)`;el.classList.add('moved-on');movedNotes.push(el);} // pin-on은 threadLit(null)이 지우므로 다른 클래스 // 매듭 포스트잇을 새 선 가운데로
   const boxes=next.map(n=>({x:n.fx,y:n.fy,w:n.w,h:n.h})),segs=[];for(const {z} of F.paths)for(let k=0;k+1<z.length;k++)segs.push({x:Math.min(z[k].x,z[k+1].x)-2,y:Math.min(z[k].y,z[k+1].y)-2,w:Math.abs(z[k+1].x-z[k].x)+4,h:Math.abs(z[k+1].y-z[k].y)+4});
   const hit=(a,b)=>a.x<b.x+b.w-1&&b.x<a.x+a.w-1&&a.y<b.y+b.h-1&&b.y<a.y+a.h-1,placed=[],done=new Set();
   for(const {z,e} of F.paths){if(done.has(e))continue;done.add(e);for(const text of e.labels){
@@ -651,7 +655,7 @@ function renderAllMemories(tiles){
  // ── all6 3단계(2026-10-20 작가 승인): 기록이 많은 쪽(사슬 2개↑·기록 5개↑)은 쪽 클릭 = 종류별 모아 보기(선 없음 — 일기 위·구술 아래·메모 그 아래·포스트잇 오른쪽, 실 앞뒤 쪽과 짝 쪽은 좌우로 당겨 옴),
  //   컷에 올리면 그 컷의 기록만 또렷하고 나머지는 흐림, 컷을 누르면 그 컷의 과정(사슬+화살표). 기록이 적은 쪽(135쪽 중 108)은 지금처럼 쪽 클릭에 바로 과정.
  //   작가 걱정("종류별로 모으면 과정을 못 보여 주지 않나")은 컷 클릭의 과정 보기로 답함. 컷 상자는 B.cuts(build_all6.py, 오타수정본 비율 그대로).
- const CUTS=B.cuts||{};let groupedPid=null,lastGrouped=null,hoverCut=-1;
+ const CUTS=B.cuts||{};let groupedPid=null,lastGrouped=null,hoverCut=-1,movedNotes=[];
  const pageRecords=pid=>{const ids=new Set();for(const c of chainsBy.get(pid)||[])for(const s of [...c.stages,...c.dstages])ids.add(s.id);return ids;};
  const shouldGroup=pid=>{const cs=chainsBy.get(pid)||[];return cs.length>1&&pageRecords(pid).size>5;}; // 기록 6개↑(135쪽 중 ~16쪽)만 모아 보기
  const rectHit=(r,cut)=>{if(r[2]>=.95&&r[3]>=.95)return true;const ix=Math.max(0,Math.min(r[0]+r[2],cut[0]+cut[2])-Math.max(r[0],cut[0])),iy=Math.max(0,Math.min(r[1]+r[3],cut[1]+cut[3])-Math.max(r[1],cut[1]));return ix*iy>=.3*Math.min(r[2]*r[3],cut[2]*cut[3]);};
@@ -671,10 +675,10 @@ function renderAllMemories(tiles){
   // 실 앞뒤 쪽·짝 쪽을 좌우로 당겨 옴(선은 곧게, 화살촉 없음)
   const lines=[];let ly=P.y,ry=P.y;const lx=P.x-PW-120,rx=P.x+P.width+120+(grp.postit.length?198:0);
   const pull=(qid,side)=>{const k='p'+qid;if(N.has(k))return N.get(k);const Q=pageBox.get(qid);if(!Q||!spreadEl.get(qid))return null;const nn={k,kind:'page',pid:qid,el:spreadEl.get(qid),w:PW,h:PH,ox:Q.x,oy:Q.y,fx:side<0?lx:rx,fy:side<0?ly:ry,succ:new Set()};if(side<0)ly+=PH+40;else ry+=PH+40;N.set(k,nn);return nn;};
-  for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid)continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect}});}}}
+  for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid)continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect},note:[t.id,Math.max(i,j)]});}}}
   for(const p of (B.pairs||[])){const me=p.first.page===pid?p.first:p.last.page===pid?p.last:null;if(!me)continue;const o=me===p.first?p.last:p.first;if(o.page===pid)continue;if(pull(o.page,me===p.first?1:-1))lines.push({cls:'pair',a:{pid,rect:me.rect},b:{pid:o.page,rect:o.rect}});}
   const cc=pt=>{const n=N.get('p'+pt.pid),r={x:n.fx+pt.rect[0]*n.w,y:n.fy+pt.rect[1]*n.h,w:pt.rect[2]*n.w,h:pt.rect[3]*n.h};return {x:r.x+r.w/2,y:r.y+r.h/2,r};};
-  return {N,paths:[],lines:lines.map(l=>{const a=cc(l.a),b=cc(l.b),z=edgeSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1]};}),grouped:true,pid};
+  return {N,paths:[],lines:lines.map(l=>{const a=cc(l.a),b=cc(l.b),z=edgeSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1],note:l.note};}),grouped:true,pid};
  };
  const cutHighlight=(pg,ci)=>{const el=pageEls.get(pg);if(!el)return;let box=el.querySelector('.cut-hl');if(!box){box=document.createElement('i');box.className='cut-hl';el.appendChild(box);}
   const cut=(CUTS[pg]||[])[ci];if(ci<0||!cut){box.style.display='none';for(const m of moved)m.classList.remove('cut-dim');return;}
@@ -684,7 +688,7 @@ function renderAllMemories(tiles){
  for(const [pg,el] of pageEls){el.addEventListener('pointermove',e=>{if(groupedPid!==pg)return;const ci=cutAt(pg,e);layer.dataset.hoverDbg=pg+' '+ci+' '+groupedPid;if(ci===hoverCut)return;hoverCut=ci;cutHighlight(pg,ci);});el.addEventListener('pointerleave',()=>{if(groupedPid!==pg)return;hoverCut=-1;cutHighlight(pg,-1);});}
  // 쪽 클릭: 모아 보기 중이거나 그 쪽의 컷 과정을 보는 중이면 → 누른 자리의 컷 과정('q'), 컷 밖이면 모아 보기로/풀기. 그 밖엔 지금까지처럼 'p'
  const pinPage=(pid,e)=>{const inQ=pinned&&pinned.startsWith('q:'+pid+':');layer.dataset.pinDbg=pid+' grouped='+groupedPid+' inQ='+inQ+' cut='+cutAt(pid,e);if(groupedPid===pid||inQ){const ci=cutAt(pid,e);if(ci>=0&&chainsForCut(pid,ci).length){wallHover.pin('q:'+pid+':'+ci);return;}if(inQ){wallHover.pin('p:'+pid);return;}}wallHover.pin('p:'+pid);};
- wallHover={pin:key=>{if(key&&key[0]==='p'&&!byPage.has(key.slice(2)))key=null;if(key&&key===pinned)key=key[0]==='q'?'p:'+key.split(':')[1]:null;pinned=key;show(null);if(key)focus(key);else unfocus();threadLit(groupedPid?null:key);},pinPage};
+ wallHover={pin:key=>{if(key&&key[0]==='p'&&!byPage.has(key.slice(2)))key=null;if(key&&key===pinned)key=key[0]==='q'?'p:'+key.split(':')[1]:null;pinned=key;show(null);if(key)focus(key);else unfocus();threadLit(null);},pinPage}; // 모일 땐 정적 실 선 대신 focus의 선(당겨 온 쪽 기준)만
  // all6: 길찾기(cross-router, ㄱ자) 대신 출발점→목표점 곧은 선(작가 "대각선이어도 될 듯"). 워커·저장 결과는 안 씀
  finishRoutes(goalList.map(g=>clipSeg(g.a,g.ar,{x:g.bx,y:g.by},g.br)),{ms:0,iters:0});
  return {x:0,y:0,width:wallW,height:wallH,cards:nodes.size,cross:cross.length};
