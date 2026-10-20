@@ -226,14 +226,21 @@ function highlighted(raw,excerpts){
 //   포스트잇 = 노란 손글씨 쪽지, 나머지(Floe 메모·대화·구성안·결정·초안) = 흰 메모 카드(글 전문, 만화에 쓰인 대목만 진하게 — all4 그대로).
 //   가린 글 표시는 build_all6.py가 원문을 지운 채로 줌: '[■■■]' = 가린 글(글자 수만), '⟦대체어⟧' = 이름을 덮은 말, 포스트잇의 '{이름}' = 회색으로 덮음.
 const CARD_W={diary:240,postit:110}; // 나머지(말풍선)는 260
+// 작가 말풍선 틀(render_bubble.py 상수, 폭 240 기준): 모퉁이 r 13.42(실물 R10), 획 1.5, 꼬리 = 아랫변 49.7에서 수직 28.9 ↓ 뒤 78.6으로 ↗. 폭 260이라 1.0833배
+function drawBubbleShapes(root){const K=260/240,r=13.42*K,ST=1.5,X0=49.7*K,X1=78.6*K,TH=28.9*K;
+ for(const box of root.querySelectorAll('.bubble-card .bubble')){const svg=box.querySelector('svg.shape');if(!svg)continue;const w=box.offsetWidth,B=box.offsetHeight,tail=!box.closest('.memo-box');
+  const f=n=>n.toFixed(2);
+  const d=`M${f(r)} ${f(ST/2)} H${f(w-r)} A${f(r)} ${f(r)} 0 0 1 ${f(w-ST/2)} ${f(r)} V${f(B-r)} A${f(r)} ${f(r)} 0 0 1 ${f(w-r)} ${f(B-ST/2)} `+(tail?`H${f(X1)} L${f(X0)} ${f(B+TH)} V${f(B-ST/2)} `:'')+`H${f(r)} A${f(r)} ${f(r)} 0 0 1 ${f(ST/2)} ${f(B-r)} V${f(r)} A${f(r)} ${f(r)} 0 0 1 ${f(r)} ${f(ST/2)} Z`;
+  const H=B+(tail?TH+1:0);svg.setAttribute('width',w);svg.setAttribute('height',H);svg.setAttribute('viewBox',`0 0 ${w} ${H}`);svg.innerHTML=`<path d="${d}"/>`;}}
 function cardWidth(s){return CARD_W[s?.sourceType]||260;}
 function bubbleHTML(t){return esc(t).replace(/⟦([^⟦⟧]*)⟧/g,'<span class="rep">$1</span>').replace(/\[(■+)\]/g,'<span class="cen">$1</span>').replace(/\{([^{}]+)\}/g,(m,g)=>`<span class="cen">${'■'.repeat(Math.max(2,g.length))}</span>`);}
 function kindLabel(s){return (TYPES[s.sourceType]||'기록')+(s.sentTo?' · '+s.sentTo:s.heardBy?' · '+s.heardBy+'에게'+(s.heardByGuess?' (추정)':''):s.via?' · '+s.via+'에서':'');}
 function stageCard(id,link){
  // 2026-10-19 작가: "메모 카드는 전부 구술처럼 바꿔줘. 종류·날짜 줄 없어도 됨. 그림자도 없애줘" → 일기·포스트잇 말고는 모두 말풍선, 아래 설명 줄 없음
  const v=versionOf(id);
- // 꼬리 SVG: 좌표 원점 = 상자 안쪽(padding) 아랫변, 테두리 띠는 y 0~1.5. 흰 삼각형이 띠를 덮고(위로 1px 더), 선 두 개는 y=0에서 시작해 띠와 맞물림 — 위로 삐져나오면 꼭지에 눈금이 보임(작가 10-20 두 번 지적)
- const bubble=(text,tail=true)=>`<article class="record-card wall-card ${tail?'bubble-card':'bubble-card memo-box'}"><div class="bubble"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(text)}</p>${tail?'<svg class="tail" viewBox="0 -1 32 32" aria-hidden="true"><path class="fill" d="M0 -1 L0 30.4 L31.3 -1 Z"/><path class="line" d="M0.75 0 L0.75 29 L31.3 0.75"/></svg>':''}</div></article>`;
+ // 말풍선 모양 = 작가 틀을 path 하나로(둥근 상자 + 꼬리, 벽 PDF를 만든 render_bubble.py와 같은 식). 글 높이에 맞춰 drawBubbleShapes()가 그린다.
+ //   CSS 테두리 위에 꼬리 SVG를 덧대던 방식은 이음새에 눈금·테두리 비침이 생겨 폐기(작가 10-20 "덕지덕지 만들지 마… svg 파일 다 줬잖아").
+ const bubble=(text,tail=true)=>`<article class="record-card wall-card ${tail?'bubble-card':'bubble-card memo-box'}"><div class="bubble"><svg class="shape" aria-hidden="true"></svg><p class="excerpt" data-canvas-no-pan>${bubbleHTML(text)}</p></div></article>`;
  if(v)return bubble(cleanSeg(v.text).trim(),false);
  const s=sourceById.get(id);if(!s)return '';
  if(s.sourceType==='diary'){ // 손글씨 SVG(글은 공개 파일에 없음) + 형광펜 상자(SVG 비율). 높이는 aspect로 미리 정해져 그림이 늦게 와도 배치가 안 흔들림
@@ -322,6 +329,7 @@ function renderAllMemories(tiles){
  for(const [pid,cs] of chainsBy)cs.forEach((c,ci)=>{for(const list of [c.stages,c.dstages])list.forEach(st=>{if(nodes.has(st.id)){st.ref=true;return;}st.ref=false;const k=nodes.size;nodes.set(st.id,{k,pid,st});html+=`<div class="canvas-memory-card" data-k="${k}">${stageCard(st.id,st.link)}</div>`;});});
  layer.innerHTML=html;
  for(const n of nodes.values()){n.el=$(`.canvas-memory-card[data-k="${n.k}"]`,layer);n.w=cardWidth(sourceById.get(n.st.id.split('@')[0]));/* all6: 종류별 폭 */n.el.style.width=n.w+'px';}
+ drawBubbleShapes(layer);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>drawBubbleShapes(layer)); // 말풍선 틀 path
  for(const n of nodes.values())n.h=n.el.offsetHeight;
  $$('.excerpt',layer).forEach(el=>{wheelToText(el);el.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')e.stopPropagation();});});
  // 쪽 하나의 영역 배치. P=쪽 상자. 반환: 카드 위치, 선, 문구, 다른 쪽으로 이어질 화살표(cross), 영역 범위

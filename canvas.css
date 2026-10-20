@@ -190,13 +190,12 @@ body.canvas-mode{background:#fff;overflow:hidden}
 .diary-card .diary-wrap{position:relative;width:100%;background:#fff;overflow:hidden} /* 10-19 작가: 그림자 없음 */
 .diary-card .diary-wrap img{position:absolute;inset:0;width:100%;height:100%;display:block;margin:0}
 .diary-card .hl{position:absolute;border:2px solid var(--hl);border-radius:6px;opacity:.85;pointer-events:none}
-/* 구술: 작가 말풍선 틀(폭 240pt 틀을 260px로 — 모퉁이 R10 실물 → 15px, 테두리 1.5, 꼬리 아랫변 54px에서 수직 29 ↓ 뒤 85로 ↗) */
-.bubble-card .bubble{position:relative;background:#fff;border:1.5px solid var(--ink);border-radius:15px;padding:14px 16px;font-family:Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;margin-bottom:31px}
-.bubble-card.memo-box .bubble{margin-bottom:0;border-radius:4px} /* 메모·대화: 꼬리 없음, 모퉁이 살짝만 */
-.canvas-memory-card .bubble-card .excerpt{font-size:11px;line-height:15.5px;max-height:none;overflow:visible;padding:0;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;color:var(--ink)}
-.bubble-card .tail{position:absolute;left:54px;bottom:-31px;width:32px;height:32px;overflow:visible} /* 위 1px는 상자 안(흰 바탕)에 겹쳐 테두리 띠를 덮음 */
-.bubble-card .tail .fill{fill:#fff;stroke:none}
-.bubble-card .tail .line{fill:none;stroke:var(--ink);stroke-width:1.5;stroke-linejoin:miter}
+/* 구술 말풍선·메모 상자: 모양은 app.js drawBubbleShapes가 작가 틀 path 하나로 그림(svg.shape). 상자엔 CSS 테두리 없음 */
+.bubble-card .bubble{position:relative;background:transparent;border:0;padding:14px 16px;font-family:Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;margin-bottom:31px}
+.bubble-card.memo-box .bubble{margin-bottom:0}
+.bubble-card .bubble svg.shape{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:0}
+.bubble-card .bubble svg.shape path{fill:#fff;stroke:var(--ink);stroke-width:1.5;stroke-linejoin:miter;vector-effect:none}
+.canvas-memory-card .bubble-card .excerpt{position:relative;z-index:1;font-size:11px;line-height:15.5px;max-height:none;overflow:visible;padding:0;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;color:var(--ink)}
 .bubble-card .cen,.postit-card .cen,.thread-note .cen{background:#9a9a9a;color:transparent;border-radius:2px;letter-spacing:-1px}
 .bubble-card .rep{background:#d9d9d9;padding:0 3px;border-radius:2px}
 /* 포스트잇(따로 붙이는 쪽지·실 매듭 문구): 노란 정사각 손글씨 */
@@ -231,7 +230,7 @@ body.canvas-mode{background:#fff;overflow:hidden}
 .wall-lines path,.wall-lines rect{fill:none;vector-effect:none}
 
 /* 10-19: 말풍선 글이 길면(Floe 메모·대화) 상자 안에서 스크롤 */
-.canvas-memory-card .bubble-card .excerpt{max-height:320px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.canvas-memory-card .bubble-card .excerpt{max-height:320px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin} /* 긴 글은 상자 안 스크롤(높이 고정 → 틀도 그 높이) */
 .wall-card-foot{display:none}
 
 /* all6 3단계: 모아 보기에서 컷 올림 테두리·관계없는 카드 흐림, 당겨 온 쪽까지의 실·짝 선 */
