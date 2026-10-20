@@ -148,6 +148,7 @@ function renderCanvas(){
   for(const t of ['gesturestart','gesturechange'])sh.addEventListener(t,e=>{if(!viewport.contains(e.target))e.preventDefault();},{passive:false});}
  const fitAll=()=>canvasController.fit(bounds,70);
  // all6: 확인용 손잡이 — 콘솔에서 somidoFocusPage('p001', 배율)로 그 쪽 둘레를 화면에 맞춤(브라우저 도구가 모듈 변수에 못 닿아서)
+ window.somidoCamera=(x,y,scale)=>{canvasController.setCamera({x,y,scale});return canvasController.getCamera();}; // 확인용: 카메라를 바로 놓기
  window.somidoFocusPage=(pid,scale=.8,pad=600)=>{const t=tileNodes.find(t=>t.pageIds.includes(pid));if(!t)return false;canvasController.focus({x:t.x-pad,y:t.y-pad/2,width:t.width+pad*2,height:t.height+pad},scale);return true;};
  // Set the full book as the keyboard reset target, then restore the current view.
  fitAll();
@@ -231,8 +232,8 @@ function kindLabel(s){return (TYPES[s.sourceType]||'기록')+(s.sentTo?' · '+s.
 function stageCard(id,link){
  // 2026-10-19 작가: "메모 카드는 전부 구술처럼 바꿔줘. 종류·날짜 줄 없어도 됨. 그림자도 없애줘" → 일기·포스트잇 말고는 모두 말풍선, 아래 설명 줄 없음
  const v=versionOf(id);
- // 꼬리 SVG는 상자 테두리(1.5px)를 2px 덮어서, 꼬리 밑변 자리에 테두리 선이 비치지 않게(작가 10-20 "꼬리 붙은 쪽에 경계선이 살짝 보여")
- const bubble=(text,tail=true)=>`<article class="record-card wall-card ${tail?'bubble-card':'bubble-card memo-box'}"><div class="bubble"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(text)}</p>${tail?'<svg class="tail" viewBox="0 -2 32 33" aria-hidden="true"><path class="fill" d="M0 -2.5 L0 30.4 L31.3 -2.5 Z"/><path class="line" d="M0.75 -1 L0.75 29 L31 -0.6"/></svg>':''}</div></article>`;
+ // 꼬리 SVG: 좌표 원점 = 상자 안쪽(padding) 아랫변, 테두리 띠는 y 0~1.5. 흰 삼각형이 띠를 덮고(위로 1px 더), 선 두 개는 y=0에서 시작해 띠와 맞물림 — 위로 삐져나오면 꼭지에 눈금이 보임(작가 10-20 두 번 지적)
+ const bubble=(text,tail=true)=>`<article class="record-card wall-card ${tail?'bubble-card':'bubble-card memo-box'}"><div class="bubble"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(text)}</p>${tail?'<svg class="tail" viewBox="0 -1 32 32" aria-hidden="true"><path class="fill" d="M0 -1 L0 30.4 L31.3 -1 Z"/><path class="line" d="M0.75 0 L0.75 29 L31.3 0.75"/></svg>':''}</div></article>`;
  if(v)return bubble(cleanSeg(v.text).trim(),false);
  const s=sourceById.get(id);if(!s)return '';
  if(s.sourceType==='diary'){ // 손글씨 SVG(글은 공개 파일에 없음) + 형광펜 상자(SVG 비율). 높이는 aspect로 미리 정해져 그림이 늦게 와도 배치가 안 흔들림
