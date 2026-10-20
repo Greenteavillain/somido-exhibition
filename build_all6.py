@@ -116,6 +116,12 @@ for b in S['bubbles']:
 for p in S['postits']:
     nt = FX.get('postit', {}).get(f"{p['target']}|{p['text']}")
     if nt: p['target'] = nt
+S['postits'] += [{'target': q['target'], 'text': q['text'], 'optional': False} for q in FX.get('postit_add', [])]   # 작가가 새로 적은 포스트잇(가공 과정)
+for d in S['diaries']:
+    f = FX.get('diary', {}).get(d['file'])
+    if not f: continue
+    if 'cut' in f: d['cut'] = f['cut']; d['page'] = int(f['cut'][:3])
+    if 'kind' in f: d['kind'] = f['kind']
 def same_cut(rect, box, tol=0.012): return all(abs(a - b) < tol for a, b in zip(rect, box))
 
 # ── 4. 구술 → 말풍선 기록 + 장면 ──
@@ -164,6 +170,7 @@ for d in S['diaries']:
     # 장면: 컷 또는 쪽. 이미 같은 쪽에 이 일기가 이어져 있으면 안 더함
     reg = region_of(d['cut']) if d['cut'] else (page_region(d['page']) if d['page'] else None)
     if not reg: continue
+    if FX.get('diary', {}).get(d['file'], {}).get('drop_wall'): continue   # 벽 자리 연결을 안 만듦(작가 10-20, 그려진 칸 연결은 옛 장면에 있음)
     # 같은 컷(상자가 거의 같음)에 이미 걸려 있을 때만 건너뜀. 전엔 '같은 쪽'이면 건너뛰어 벽 자리(124-3)와 다른 옛 연결(124-2)만 남는 일기가 있었음(전수 점검 10-20)
     already = any(l['sourceId'] == sid and any(r['page'] == reg['page'] and same_cut(r['rect'], reg['rect']) for r in a['regions']) for a in anchors.values() for l in a['links'])
     if already: continue
