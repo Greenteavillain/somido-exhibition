@@ -204,13 +204,55 @@ for p in S['pairs']:
     if a and b: pairs.append({'name': p['name'], 'first': {'cut': p['first'], 'page': a['page'], 'rect': a['rect'], 'quote': p['first_quote']}, 'last': {'cut': p['last'], 'page': b['page'], 'rect': b['rect'], 'quote': p['last_quote']}, 'meaning': p['meaning']})
 print('실', [(t['id'], len(t['nodes'])) for t in threads], '짝', len(pairs))
 
+# ── 7a. 메모·대화 기록 손질(작가 10-20 규칙 "ㅇㅇ ㄱㄱ": 자르기만 — AI에게 한 말 빼기·긴 메모는 컷별로 쪼개기·AI가 쓴 기록 6개와 중복 빼기) ──
+#    입력 site-data/all6_memo_edits.json {id: {drop, pieces[{text,cut}]}} = tools/memo_from_workflow.py가 워크플로 결과(_memo_trim_result.json)로 만듦.
+#    7b(같은 컷 사슬)·8(쓰이는 기록만)·9(가리기) 앞에서 해야 조각이 사슬에 끼고, 치환표·금지어 검사를 거치고, 키가 걸러짐(전엔 9 뒤에 있어 조각 글이 치환표를 안 거쳤음).
+#    조각에 컷이 있으면 원래 기록이 걸려 있던 장면(긴 메모는 18곳)에서 모두 떼고 조각마다 그 컷에 새 장면(wall-memo-*) — 첫 조각도 같이(전엔 첫 조각이 원래 18곳에 다 남았음).
+def unlink(sid):
+    for aid in list(anchors):
+        a = anchors[aid]; a['links'] = [l for l in a['links'] if l['sourceId'] != sid]
+        if a.get('lanes'):
+            for lane in ('memory', 'decision'): a['lanes'][lane] = [x for x in a['lanes'][lane] if x != sid]
+        if a.get('lineage'): a['lineage'] = [x for x in a['lineage'] if x != sid]
+        if a.get('sourceIds'): a['sourceIds'] = [x for x in a['sourceIds'] if x != sid]
+        if a.get('lineageHops'): a['lineageHops'] = {k: v for k, v in a['lineageHops'].items() if sid not in k.split('>')}
+        if not a['links']: del anchors[aid]
+def cut_region(cut):
+    if cut in S['cuts']: return region_of(cut)
+    m = re.match(r'(\d{3})', cut or ''); return page_region(int(m.group(1))) if m else None
+ME_BEFORE = {}
+TYPES_KO = {'floe': '메모', 'author_decision': '결정', 'author_note': '메모', 'draft_script': '대사 초안', 'ai_proposal': 'AI 제안', 'audit_note': '대조 메모', 'planning_summary': '구성안', 'claude_chat': '대화', 'codex_chat': '대화', 'user_chat': '대화'}
+me_path = SM / 'site-data' / 'all6_memo_edits.json'
+if me_path.exists():
+    ME = json.loads(me_path.read_text()); n_drop = n_split = n_trim = 0
+    for sid, e in ME.items():
+        if sid not in src: print('  ⚠ 손질 대상 없음', sid); continue
+        ME_BEFORE[sid] = {'title': src[sid].get('title', ''), 'content': src[sid].get('content', ''), 'type': src[sid].get('sourceType', '')}
+        if e.get('drop'): del src[sid]; unlink(sid); n_drop += 1; continue
+        pieces = [p_ for p_ in e.get('pieces', []) if p_.get('text', '').strip()]
+        if not pieces: continue
+        if len(pieces) == 1 and not pieces[0].get('cut'):
+            src[sid]['content'] = pieces[0]['text']; src[sid]['summary'] = ''; n_trim += 1; continue
+        first_pages = [a['regions'][0]['page'] for a in anchors.values() if any(l['sourceId'] == sid for l in a['links'])]
+        unlink(sid); base_rec = dict(src[sid])
+        for n, p_ in enumerate(pieces, 1):
+            nid = sid if n == 1 else f'{sid}-{n}'
+            src[nid] = {**base_rec, 'id': nid, 'content': p_['text'], 'summary': '', 'piece': n}
+            reg = cut_region(p_.get('cut'))
+            if not reg and first_pages: reg = {'id': f'r-{nid}', 'page': first_pages[0], 'rect': [0, 0, 1, 1], 'label': '쪽 전체'}
+            if not reg: print('  ⚠ 조각 자리 없음', nid, p_.get('cut')); continue
+            new_anchors.append({'id': f'wall-memo-{nid}', 'page': reg['page'], 'title': base_rec.get('title', ''), 'scope': 'region', 'regions': [reg], 'episodeIds': [], 'sourceIds': [nid],
+                                'links': [{'sourceId': nid, 'relation': 'author_note', 'status': 'confirmed', 'basis': 'author_memo_split_2026-10-20'}], 'lanes': {'memory': [nid], 'decision': [], 'into': 'comic'}, 'lineageHops': {}})
+            n_split += 1
+    print('메모 손질', len(ME), '개 — 뺌', n_drop, ', 잘라냄', n_trim, ', 쪼갠 조각', n_split)
+
 # ── 7b. 같은 컷(또는 같은 쪽 전체)에 붙은 벽 기록은 한 장면으로 묶어 시간순 사슬로: 일기(당시) → 보낸 사연·구술(기억) → 포스트잇(바꾼 점) → 컷
 #    작가(10-20): "사람이 구술을 하면 내용에 변화가 생기고 그게 다시 기억되면서 변화가 생기고… 구술 내용 중 변화한 것이나 과정이 있으면 차례로 이어주면 좋을 듯"
 #    순서 = 기록의 날짜(일기 2021 < 사연·구술 2026), 포스트잇은 맨 뒤(컷 바로 앞). 문구(lineageHops)는 새로 지어내지 않고 일기 장면의 것만 둠
 def rec_date(sid):
     s_ = src.get(sid, {}); t = s_.get('sourceType')
     m = re.search(r'-(\d+)$', sid); n = int(m.group(1)) if m else 0      # 같은 이야기의 조각(-1, -2, -3)은 번호 순
-    return (0, s_.get('date', ''), n) if t == 'diary' else (1, s_.get('recordedAt') or s_.get('date', ''), n) if t in ('submitted_story', 'oral_recollection') else (2, '', n)
+    return (0, s_.get('date', ''), n) if t == 'diary' else (1, s_.get('recordedAt') or s_.get('date', ''), n) if t in ('submitted_story', 'oral_recollection') else (3, '', n) if t == 'postit' else (2, '', s_.get('piece', 0))   # 메모 조각(piece)은 구술 뒤·포스트잇 앞
 by_reg = {}
 for a in new_anchors: by_reg.setdefault((a['regions'][0]['page'], tuple(a['regions'][0]['rect'])), []).append(a)
 merged = []
@@ -276,36 +318,6 @@ fv = scrub(fv); threads = scrub(threads); pairs = scrub(pairs)
 # 책 차례(sections)·쪽 제목·메모에도 실제 부대 이름(13화 제목)·윗부대 간부 이름(막간 설명)이 있었음 → 책 자료 전체를 같이 가림. 공개 파일에 안 쓰는 경로·검수 정보는 뺌
 for k in ('source', 'build', 'verification', 'imageSource'): book.pop(k, None)
 book = scrub(book)
-# ── 9b. 메모·대화 기록 손질(작가 10-20 규칙: AI에게 한 말 빼기, 긴 메모는 컷별로 쪼개기, 자르기만) — site-data/all6_memo_edits.json {id: {drop, pieces[{text,cut}]}}
-#    첫 조각은 원래 기록의 글로, 둘째부터는 새 기록(id-2, -3…)을 만들어 그 컷에 장면을 붙임. drop이면 기록과 참조를 뺌(장면에 남는 링크가 없으면 장면도)
-me_path = SM / 'site-data' / 'all6_memo_edits.json'
-if me_path.exists():
-    ME = json.loads(me_path.read_text()); n_drop = n_split = 0
-    for sid, e in ME.items():
-        if sid not in src: continue
-        if e.get('drop'):
-            del src[sid]; n_drop += 1
-            for aid in list(anchors):
-                a = anchors[aid]; a['links'] = [l for l in a['links'] if l['sourceId'] != sid]
-                if a.get('lanes'):
-                    for lane in ('memory', 'decision'): a['lanes'][lane] = [x for x in a['lanes'][lane] if x != sid]
-                if a.get('lineage'): a['lineage'] = [x for x in a['lineage'] if x != sid]
-                if not a['links']: del anchors[aid]
-            continue
-        pieces = [p_ for p_ in e.get('pieces', []) if p_.get('text', '').strip()]
-        if not pieces: continue
-        src[sid]['content'] = pieces[0]['text']; src[sid]['summary'] = ''
-        for n, p_ in enumerate(pieces[1:], 2):
-            nid = f'{sid}-{n}'; src[nid] = {**src[sid], 'id': nid, 'content': p_['text']}
-            reg = region_of(p_['cut']) if p_.get('cut') else None
-            if not reg:   # 컷을 못 정했으면 원래 기록이 붙은 첫 쪽 전체
-                first = next((a for a in anchors.values() if any(l['sourceId'] == sid for l in a['links'])), None)
-                reg = {'id': f'r-{nid}', 'page': first['regions'][0]['page'], 'rect': [0, 0, 1, 1], 'label': '쪽 전체'} if first else None
-            if not reg: continue
-            anchors[f'wall-memo-{nid}'] = {'id': f'wall-memo-{nid}', 'page': reg['page'], 'title': src[sid].get('title', ''), 'scope': 'region', 'regions': [reg], 'episodeIds': [], 'sourceIds': [nid],
-                                           'links': [{'sourceId': nid, 'relation': 'author_note', 'status': 'confirmed', 'basis': 'author_memo_split_2026-10-20'}], 'lanes': {'memory': [nid], 'decision': [], 'into': 'comic'}, 'lineageHops': {}}
-            n_split += 1
-    print('메모 손질', len(ME), '개 적용 — 뺌', n_drop, ', 쪼갠 조각', n_split)
 blob = json.dumps({'s': src, 'a': anchors, 'f': fv, 't': threads, 'p': pairs, 'b': book}, ensure_ascii=False)
 bad = [w for w in SCRUB['forbid'] if w in blob]
 if bad:
@@ -313,6 +325,25 @@ if bad:
         i = blob.find(w); print('금지어', w, '|', blob[max(0, i - 80):i + 40].replace('\n', ' '))
     if '--dev' not in sys.argv: sys.exit(f'공개 글에 금지어가 남음: {bad}')
     print('⚠⚠ --dev: 금지어가 남은 채로 씀 — 이 bundle.js는 올리면 안 됨')
+
+# ── 9c. 메모 손질 검토 목록(작가용, 가린 글로) ──
+if ME_BEFORE:
+    L = ['# 메모·대화 기록 손질 목록 (2026-10-20)', '', '규칙: 자르기만(보태기·어미 바꾸기 없음). 자른 자리는 …. 쪼갠 조각은 「컷 번호」 뒤에.', '']
+    for sid, e in ME.items():
+        b = ME_BEFORE.get(sid)
+        if not b: continue
+        L.append(f"## {scrub_str(b['title']) or sid}  ({TYPES_KO.get(b['type'], b['type'])})")
+        L.append('원문: ' + scrub_str(b['content']).replace('\n', ' ⏎ '))
+        if e.get('drop'): L.append('→ **뺌** — ' + e.get('reason', '')); L.append(''); continue
+        ps = e.get('pieces', [])
+        if len(ps) == 1: L.append('→ 잘라냄: ' + scrub_str(ps[0]['text']).replace('\n', ' ⏎ '))
+        else:
+            L.append(f'→ {len(ps)}조각으로:')
+            for p_ in ps: L.append(f"  - 「{p_.get('cut') or '쪽 전체'}」 {scrub_str(p_['text']).replace(chr(10), ' ⏎ ')}")
+        if e.get('reason'): L.append('  (' + e['reason'] + ')')
+        L.append('')
+    (SM / 'site-data' / '_memo_edit_review.md').write_text('\n'.join(L))
+    print('검토 목록 site-data/_memo_edit_review.md', len(ME_BEFORE), '건')
 
 # ── 10. 쓰기 ──
 cuts_by_pid = {}
