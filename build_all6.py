@@ -108,6 +108,16 @@ def region_of(cid, label=''):
 def page_region(pg):
     pid = pid_of_page.get(int(pg)); return {'id': f'r-p{pg}', 'page': pid, 'rect': [0, 0, 1, 1], 'label': f'{pg}쪽 전체'} if pid else None
 
+# ── 3b. 연결 고침표(site-data/all6_link_fixes.json, 전수 점검 결과 중 사실 근거가 분명한 것) ──
+FX = json.loads((SM / 'site-data' / 'all6_link_fixes.json').read_text()) if (SM / 'site-data' / 'all6_link_fixes.json').exists() else {}
+for b in S['bubbles']:
+    f = FX.get('bubble', {}).get(b['id'])
+    if f: b['cut'] = f.get('cut', ''); b['page'] = f.get('page') or (int(f['cut'][:3]) if f.get('cut') else b['page'])
+for p in S['postits']:
+    nt = FX.get('postit', {}).get(f"{p['target']}|{p['text']}")
+    if nt: p['target'] = nt
+def same_cut(rect, box, tol=0.012): return all(abs(a - b) < tol for a, b in zip(rect, box))
+
 # ── 4. 구술 → 말풍선 기록 + 장면 ──
 meta_of = {s['id']: s for s in au.get('sources', [])}   # 옛 구술 기록의 제목·들은 사람 등
 def base_id(bid): return re.sub(r'-\d+$', '', bid)
@@ -154,7 +164,8 @@ for d in S['diaries']:
     # 장면: 컷 또는 쪽. 이미 같은 쪽에 이 일기가 이어져 있으면 안 더함
     reg = region_of(d['cut']) if d['cut'] else (page_region(d['page']) if d['page'] else None)
     if not reg: continue
-    already = any(l['sourceId'] == sid and any(r['page'] == reg['page'] for r in a['regions']) for a in anchors.values() for l in a['links'])
+    # 같은 컷(상자가 거의 같음)에 이미 걸려 있을 때만 건너뜀. 전엔 '같은 쪽'이면 건너뛰어 벽 자리(124-3)와 다른 옛 연결(124-2)만 남는 일기가 있었음(전수 점검 10-20)
+    already = any(l['sourceId'] == sid and any(r['page'] == reg['page'] and same_cut(r['rect'], reg['rect']) for r in a['regions']) for a in anchors.values() for l in a['links'])
     if already: continue
     hop = {'drawn': '', 'nearby': '그 무렵의 일', 'none': '만화가 되지 않은 날'}.get(d['kind'], '')
     new_anchors.append({'id': f'wall-diary-{d["file"][:-4]}', 'page': reg['page'], 'title': d['date'] + ' 일기', 'scope': 'region', 'regions': [reg], 'episodeIds': [],
@@ -188,6 +199,20 @@ for p in extra:
     new_anchors.append({'id': f'wall-postit-{pn}', 'page': reg['page'], 'title': '', 'scope': 'region', 'regions': [reg], 'episodeIds': [], 'sourceIds': [sid],
                         'links': [{'sourceId': sid, 'relation': 'author_note', 'status': 'confirmed', 'basis': 'author_wall_2026-10-18'}], 'lanes': {'memory': [sid], 'decision': [], 'into': 'comic'}, 'lineageHops': {}})
 print('포스트잇 실 매듭', len(thread_note), '따로', pn)
+
+# ── 6b. 연결 고침표 적용: 잘못된·중복 연결 떼기, 영역 보태기 ──
+for sid, aid, why in FX.get('unlink', []):
+    a = anchors.get(aid)
+    if not a or not any(l['sourceId'] == sid for l in a['links']): print('  ⚠ 뗄 연결 없음', sid, aid); continue
+    a['links'] = [l for l in a['links'] if l['sourceId'] != sid]
+    if a.get('lanes'):
+        for lane in ('memory', 'decision'): a['lanes'][lane] = [x for x in a['lanes'].get(lane, []) if x != sid]
+    a['sourceIds'] = [x for x in a.get('sourceIds', []) if x != sid]
+    if not a['links']: del anchors[aid]
+for aid, cid, why in FX.get('add_region', []):
+    a = anchors.get(aid); reg = region_of(cid)
+    if a and reg and not any(same_cut(r['rect'], reg['rect']) for r in a['regions']): a['regions'].append(reg)
+print('연결 고침표: 말풍선', len(FX.get('bubble', {})), '포스트잇', len(FX.get('postit', {})), '뗌', len(FX.get('unlink', [])), '영역', len(FX.get('add_region', [])))
 
 # ── 7. 실·짝 ──
 threads = []
@@ -255,6 +280,27 @@ def rec_date(sid):
     return (0, s_.get('date', ''), n) if t == 'diary' else (1, s_.get('recordedAt') or s_.get('date', ''), n) if t in ('submitted_story', 'oral_recollection') else (3, '', n) if t == 'postit' else (2, '', s_.get('piece', 0))   # 메모 조각(piece)은 구술 뒤·포스트잇 앞
 by_reg = {}
 for a in new_anchors: by_reg.setdefault((a['regions'][0]['page'], tuple(a['regions'][0]['rect'])), []).append(a)
+# 같은 컷에 옛 장면(anchor-p*, all4 때 만든 것)으로 걸린 일기는 벽 사슬로 옮김 — 전엔 01L(옛 050-2)과 04L(벽 050-2)이 같은 컷인데 따로 놀았음(전수 점검 10-20).
+#   옛 장면의 다른 기록(메모·결정)은 그대로 두고, 일기 링크만 뺀다(남는 링크가 없으면 장면도 뺌)
+moved = 0
+for (pg, rect), group in by_reg.items():
+    if len(group) == 1 and not group[0]['regions'][0]['label'].endswith('쪽 전체') and rect == (0, 0, 1, 1): continue
+    if rect == (0, 0, 1, 1): continue
+    for aid in list(anchors):
+        a = anchors[aid]
+        if aid.startswith('wall-') or a['page'] != pg or not any(same_cut(r['rect'], rect) for r in a['regions']): continue
+        for l in [l for l in a['links'] if src.get(l['sourceId'], {}).get('sourceType') == 'diary']:
+            sid = l['sourceId']
+            if any(sid in g['lanes']['memory'] for g in group): continue
+            hop = (a.get('lineageHops') or {}).get(f'{sid}>comic', '')
+            group.append({'id': f'wall-old-{aid}-{sid}', 'page': pg, 'title': a.get('title', ''), 'scope': 'region', 'regions': [group[0]['regions'][0]], 'episodeIds': [], 'sourceIds': [sid],
+                          'links': [dict(l)], 'lanes': {'memory': [sid], 'decision': [], 'into': 'comic'}, 'lineageHops': {f'{sid}>comic': hop} if hop else {}})
+            a['links'] = [x for x in a['links'] if x['sourceId'] != sid]
+            if a.get('lanes'):
+                for lane in ('memory', 'decision'): a['lanes'][lane] = [x for x in a['lanes'].get(lane, []) if x != sid]
+            a['sourceIds'] = [x for x in a.get('sourceIds', []) if x != sid]; moved += 1
+        if not a['links']: del anchors[aid]
+print('옛 장면에서 벽 사슬로 옮긴 일기 연결', moved)
 merged = []
 for key, group in by_reg.items():
     # 쪽 전체에 붙은 것(그 무렵 일기들)은 서로 이어진 이야기가 아니라 안 묶음 — 컷에 붙은 것만
