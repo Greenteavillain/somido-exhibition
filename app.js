@@ -231,14 +231,15 @@ function kindLabel(s){return (TYPES[s.sourceType]||'기록')+(s.sentTo?' · '+s.
 function stageCard(id,link){
  // 2026-10-19 작가: "메모 카드는 전부 구술처럼 바꿔줘. 종류·날짜 줄 없어도 됨. 그림자도 없애줘" → 일기·포스트잇 말고는 모두 말풍선, 아래 설명 줄 없음
  const v=versionOf(id);
- const bubble=text=>`<article class="record-card wall-card bubble-card"><div class="bubble"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(text)}</p><svg class="tail" viewBox="0 0 32 31" aria-hidden="true"><path class="fill" d="M0 0 L0 30.4 L31.3 0 Z"/><path class="line" d="M0.75 0 L0.75 29 L31 0.75"/></svg></div></article>`;
- if(v)return bubble(cleanSeg(v.text).trim());
+ // 꼬리 SVG는 상자 테두리(1.5px)를 2px 덮어서, 꼬리 밑변 자리에 테두리 선이 비치지 않게(작가 10-20 "꼬리 붙은 쪽에 경계선이 살짝 보여")
+ const bubble=(text,tail=true)=>`<article class="record-card wall-card ${tail?'bubble-card':'bubble-card memo-box'}"><div class="bubble"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(text)}</p>${tail?'<svg class="tail" viewBox="0 -2 32 33" aria-hidden="true"><path class="fill" d="M0 -2.5 L0 30.4 L31.3 -2.5 Z"/><path class="line" d="M0.75 -1 L0.75 29 L31 -0.6"/></svg>':''}</div></article>`;
+ if(v)return bubble(cleanSeg(v.text).trim(),false);
  const s=sourceById.get(id);if(!s)return '';
  if(s.sourceType==='diary'){ // 손글씨 SVG(글은 공개 파일에 없음) + 형광펜 상자(SVG 비율). 높이는 aspect로 미리 정해져 그림이 늦게 와도 배치가 안 흔들림
   const marks=(s.marks||[]).map(m=>`<i class="hl" title="${esc(m.reason||'')}" style="left:${(m.box[0]*100).toFixed(2)}%;top:${(m.box[1]*100).toFixed(2)}%;width:${(m.box[2]*100).toFixed(2)}%;height:${(m.box[3]*100).toFixed(2)}%"></i>`).join('');
   return `<article class="record-card wall-card diary-card"><div class="diary-wrap" style="aspect-ratio:1/${s.aspect||1.316}">${s.image?`<img src="${esc(s.image)}" alt="일기 ${esc(s.date||'')}" loading="lazy" decoding="async">`:''}${marks}</div></article>`;}
  if(s.sourceType==='postit')return `<article class="record-card wall-card postit-card"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(s.content||'')}</p></article>`;
- return bubble(s.sourceType==='oral_recollection'||s.sourceType==='submitted_story'?(s.content||''):cleanSeg(sourceText(s)).trim());
+ const oral=s.sourceType==='oral_recollection'||s.sourceType==='submitted_story';return bubble(oral?(s.content||''):cleanSeg(sourceText(s)).trim(),oral); // 구술만 꼬리, 메모·대화·초안은 꼬리 없는 상자
 }
 // 2026-10-03 작가 요청: 장면마다 '기억 줄'(일기 → Floe 회상 → 대본 초안·판본)과 '결정 줄'(제작 대화·구성 결정)을 나눠 그리고,
 // 두 줄이 만화 컷에서 합쳐지게 한다(제작 대화가 초안이 바뀐 결과처럼 읽히지 않게).

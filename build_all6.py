@@ -273,6 +273,36 @@ fv = scrub(fv); threads = scrub(threads); pairs = scrub(pairs)
 # 책 차례(sections)·쪽 제목·메모에도 실제 부대 이름(13화 제목)·윗부대 간부 이름(막간 설명)이 있었음 → 책 자료 전체를 같이 가림. 공개 파일에 안 쓰는 경로·검수 정보는 뺌
 for k in ('source', 'build', 'verification', 'imageSource'): book.pop(k, None)
 book = scrub(book)
+# ── 9b. 메모·대화 기록 손질(작가 10-20 규칙: AI에게 한 말 빼기, 긴 메모는 컷별로 쪼개기, 자르기만) — site-data/all6_memo_edits.json {id: {drop, pieces[{text,cut}]}}
+#    첫 조각은 원래 기록의 글로, 둘째부터는 새 기록(id-2, -3…)을 만들어 그 컷에 장면을 붙임. drop이면 기록과 참조를 뺌(장면에 남는 링크가 없으면 장면도)
+me_path = SM / 'site-data' / 'all6_memo_edits.json'
+if me_path.exists():
+    ME = json.loads(me_path.read_text()); n_drop = n_split = 0
+    for sid, e in ME.items():
+        if sid not in src: continue
+        if e.get('drop'):
+            del src[sid]; n_drop += 1
+            for aid in list(anchors):
+                a = anchors[aid]; a['links'] = [l for l in a['links'] if l['sourceId'] != sid]
+                if a.get('lanes'):
+                    for lane in ('memory', 'decision'): a['lanes'][lane] = [x for x in a['lanes'][lane] if x != sid]
+                if a.get('lineage'): a['lineage'] = [x for x in a['lineage'] if x != sid]
+                if not a['links']: del anchors[aid]
+            continue
+        pieces = [p_ for p_ in e.get('pieces', []) if p_.get('text', '').strip()]
+        if not pieces: continue
+        src[sid]['content'] = pieces[0]['text']; src[sid]['summary'] = ''
+        for n, p_ in enumerate(pieces[1:], 2):
+            nid = f'{sid}-{n}'; src[nid] = {**src[sid], 'id': nid, 'content': p_['text']}
+            reg = region_of(p_['cut']) if p_.get('cut') else None
+            if not reg:   # 컷을 못 정했으면 원래 기록이 붙은 첫 쪽 전체
+                first = next((a for a in anchors.values() if any(l['sourceId'] == sid for l in a['links'])), None)
+                reg = {'id': f'r-{nid}', 'page': first['regions'][0]['page'], 'rect': [0, 0, 1, 1], 'label': '쪽 전체'} if first else None
+            if not reg: continue
+            anchors[f'wall-memo-{nid}'] = {'id': f'wall-memo-{nid}', 'page': reg['page'], 'title': src[sid].get('title', ''), 'scope': 'region', 'regions': [reg], 'episodeIds': [], 'sourceIds': [nid],
+                                           'links': [{'sourceId': nid, 'relation': 'author_note', 'status': 'confirmed', 'basis': 'author_memo_split_2026-10-20'}], 'lanes': {'memory': [nid], 'decision': [], 'into': 'comic'}, 'lineageHops': {}}
+            n_split += 1
+    print('메모 손질', len(ME), '개 적용 — 뺌', n_drop, ', 쪼갠 조각', n_split)
 blob = json.dumps({'s': src, 'a': anchors, 'f': fv, 't': threads, 'p': pairs, 'b': book}, ensure_ascii=False)
 bad = [w for w in SCRUB['forbid'] if w in blob]
 if bad:
