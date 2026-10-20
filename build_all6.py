@@ -201,6 +201,30 @@ for p in S['pairs']:
     if a and b: pairs.append({'name': p['name'], 'first': {'cut': p['first'], 'page': a['page'], 'rect': a['rect'], 'quote': p['first_quote']}, 'last': {'cut': p['last'], 'page': b['page'], 'rect': b['rect'], 'quote': p['last_quote']}, 'meaning': p['meaning']})
 print('실', [(t['id'], len(t['nodes'])) for t in threads], '짝', len(pairs))
 
+# ── 7b. 같은 컷(또는 같은 쪽 전체)에 붙은 벽 기록은 한 장면으로 묶어 시간순 사슬로: 일기(당시) → 보낸 사연·구술(기억) → 포스트잇(바꾼 점) → 컷
+#    작가(10-20): "사람이 구술을 하면 내용에 변화가 생기고 그게 다시 기억되면서 변화가 생기고… 구술 내용 중 변화한 것이나 과정이 있으면 차례로 이어주면 좋을 듯"
+#    순서 = 기록의 날짜(일기 2021 < 사연·구술 2026), 포스트잇은 맨 뒤(컷 바로 앞). 문구(lineageHops)는 새로 지어내지 않고 일기 장면의 것만 둠
+def rec_date(sid):
+    s_ = src.get(sid, {}); t = s_.get('sourceType')
+    m = re.search(r'-(\d+)$', sid); n = int(m.group(1)) if m else 0      # 같은 이야기의 조각(-1, -2, -3)은 번호 순
+    return (0, s_.get('date', ''), n) if t == 'diary' else (1, s_.get('recordedAt') or s_.get('date', ''), n) if t in ('submitted_story', 'oral_recollection') else (2, '', n)
+by_reg = {}
+for a in new_anchors: by_reg.setdefault((a['regions'][0]['page'], tuple(a['regions'][0]['rect'])), []).append(a)
+merged = []
+for key, group in by_reg.items():
+    # 쪽 전체에 붙은 것(그 무렵 일기들)은 서로 이어진 이야기가 아니라 안 묶음 — 컷에 붙은 것만
+    if len(group) == 1 or group[0]['regions'][0]['label'].endswith('쪽 전체'): merged.extend(group); continue
+    ids = sorted({sid for a in group for sid in a['lanes']['memory']}, key=rec_date)
+    base = dict(group[0]); base['id'] = 'wall-chain-' + group[0]['regions'][0]['label'].replace(' ', '_')
+    base['title'] = ' · '.join(x for x in (a['title'] for a in group) if x)[:80]
+    base['sourceIds'] = ids; base['links'] = [l for a in group for l in a['links']]
+    base['lanes'] = {'memory': ids, 'decision': [], 'into': 'comic'}
+    hops = {}
+    for a in group: hops.update(a.get('lineageHops', {}))
+    base['lineageHops'] = {k: v for k, v in hops.items() if k.endswith('>comic') and k.split('>')[0] == ids[-1]}
+    merged.append(base)
+print('벽 장면 묶기', len(new_anchors), '→', len(merged), '(사슬', sum(1 for a in merged if a['id'].startswith('wall-chain')), ')')
+new_anchors = merged
 for a in new_anchors: anchors[a['id']] = a
 # 일기 글은 공개 파일에 안 싣기로(손글씨 SVG만) → 일기 링크의 발췌(sourceExcerpt·publicQuote·quote)도 지움. 다른 링크의 quote류 키도 화면에 안 쓰므로 뺌
 LINK_DROP = {'quote', 'excerptNote', 'evidence'}
