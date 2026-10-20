@@ -13,7 +13,7 @@ const today = () => new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).for
 const TYPES = {diary:'당시 일기',floe:'구상 메모',claude_chat:'Claude와의 대화',planning_summary:'AI가 정리한 구성안',user_chat:'작가의 대화',codex_chat:'Codex와의 대화',audit_note:'자료 대조 메모',oral_recollection:'구술·회상',submitted_story:'보낸 사연',author_note:'작가의 제작 메모',ai_proposal:'AI의 제안',draft_script:'원고 초안',author_decision:'작가의 결정',postit:'작업 메모'};
 const REL = {source_for:'창작에 반영',related_record:'대응하는 기록',adapted_from:'표현을 바꾸어 사용',visual_source:'그림으로 사용',planning:'구성에 관한 대화',recollection:'장면에 관한 회상',combined:'여러 기억을 합침',reordered:'배열을 바꿈',dialogue:'대사로 사용',reference:'참고한 기록',...B.relationLabels};
 const state = {view:'book',spread:0,anchor:null,editing:false,candidates:true,sourceFocus:null,readerZoom:1,pair:'first-page-single',draw:false,draftRegions:[],showAllLinks:false};
-let canvasController=null,canvasCamera=null,canvasResize=null,canvasFrame=0,canvasSelection=null,canvasSourceFit=null,canvasAnchorFit=null;
+let startCamera=null,pinned=null,canvasController=null,canvasCamera=null,canvasResize=null,canvasFrame=0,canvasSelection=null,canvasSourceFit=null,canvasAnchorFit=null;
 const pageById = new Map(B.book.pages.map(p=>[p.id,p]));
 const emptyAuthor=()=>({schemaVersion:1,sources:[],anchors:[],sourcePatches:{},anchorPatches:{},bookHash:B.book.sourceHash});
 const compatibleAuthor=v=>v.bookHash===B.book.sourceHash||(!v.bookHash&&!v.anchors?.length&&!Object.keys(v.anchorPatches||{}).length);
@@ -104,6 +104,7 @@ function render(){
  if(state.view==='reader')renderReader();else renderCanvas();
 }
 function savePrefs(){try{localStorage.setItem('somido-exhibition-prefs',JSON.stringify({pair:state.pair}));}catch(e){}}
+document.addEventListener('contextmenu',e=>e.preventDefault()); // 매직마우스 오른쪽 탭으로 메뉴가 안 뜨게(전시)
 // all6(2026-10-20 작가): Tab 키 = 브라우저 전체화면(Fullscreen API) 켜고 끄기. 크롬 메뉴의 전체화면과 달리 탭·주소줄·메뉴줄이 다 사라짐. 전시장 아이맥에서 한 번 누르면 됨
 window.addEventListener('keydown',e=>{if(e.key!=='Tab'||e.metaKey||e.ctrlKey||e.altKey)return;const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable))return;e.preventDefault();
  if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});}else{const el=document.documentElement;(el.requestFullscreen?el.requestFullscreen({navigationUI:'hide'}):el.webkitRequestFullscreen?Promise.resolve(el.webkitRequestFullscreen()):Promise.reject()).catch(()=>toast('전체화면을 켤 수 없습니다 (브라우저가 막음)'));}});
@@ -154,6 +155,20 @@ function renderCanvas(){
  else{ // all6(2026-10-20 작가 "처음부터 좀 확대되어 있는 채로 시작"): 벽 전체 맞춤 대신 첫 쪽(책 시작)이 왼쪽 위에 오게 배율 .65(쪽 폭 약 156px)
   const START_SCALE=.65,t0=tiles[0];
   if(t0)canvasController.setCamera({x:140-t0.x*START_SCALE,y:120-t0.y*START_SCALE,scale:START_SCALE});else fitAll();}
+ startCamera={...canvasController.getCamera()}; // 자동 복귀·'처음' 단추용
+ // ── 매직마우스용(2026-10-20 작가 "전시장엔 애플마우스만"): 핀치가 없어 확대·축소는 ① 오른쪽 아래 큰 단추 ② 더블클릭(그 자리 1.6배, 빈 곳 더블클릭은 처음 배율)으로.
+ //    왼쪽 아래 60pt 칸은 키오스크 앱(somido-kiosk)의 숨은 패턴 자리라 단추를 오른쪽 아래에 둠. 3분 동안 입력이 없으면 모임을 풀고 처음 화면으로(키오스크의 5분 초기화보다 먼저).
+ {const ui=document.createElement('div');ui.id='zoom-ui';ui.innerHTML='<button data-z="in" aria-label="확대">+</button><button data-z="out" aria-label="축소">−</button><button data-z="home" aria-label="처음 화면">⌂</button>';$('.canvas-shell').appendChild(ui);
+  const center=()=>{const r=viewport.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];};
+  ui.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;e.stopPropagation();const [cx,cy]=center();
+   if(b.dataset.z==='in')canvasController.zoomAt(1.35,cx,cy);else if(b.dataset.z==='out')canvasController.zoomAt(1/1.35,cx,cy);else{if(wallHover)wallHover.pin(null);canvasController.setCamera(startCamera);}});
+  ui.addEventListener('pointerdown',e=>e.stopPropagation());ui.addEventListener('wheel',e=>e.stopPropagation(),{passive:true});
+  viewport.addEventListener('dblclick',e=>{if(e.target.closest('#zoom-ui'))return;e.preventDefault();const onPage=e.target.closest('.canvas-page'),onCard=e.target.closest('.canvas-memory-card');
+   if(onPage||onCard){canvasController.zoomAt(1.6,e.clientX,e.clientY);if(onPage&&wallHover){const pid=onPage.dataset.canvasPage;if(!(pinned||'').includes(pid))wallHover.pin('p:'+pid);}} // 쪽 위 더블클릭 = 확대 + 그 쪽 모임 유지(클릭 두 번으로 풀린 걸 되돌림)
+   else{if(wallHover)wallHover.pin(null);canvasController.setCamera(startCamera);}});
+  let lastInput=performance.now();const IDLE_MS=3*60*1000;
+  for(const t of ['pointermove','pointerdown','wheel','keydown'])window.addEventListener(t,()=>{lastInput=performance.now();},{passive:true,capture:true});
+  setInterval(()=>{if(performance.now()-lastInput<IDLE_MS)return;lastInput=performance.now();if(wallHover)wallHover.pin(null);canvasController.setCamera(startCamera);},5000);}
  if(focused&&canvasSourceFit===focused.id&&tiles.some(t=>t.matched)){
   const matched=tiles.filter(t=>t.matched),x=Math.min(...matched.map(t=>t.x)),y=Math.min(...matched.map(t=>t.y));
   const box={x:x-30,y:y-55,width:Math.max(...matched.map(t=>t.x+t.width))-x+60,height:Math.max(...matched.map(t=>t.y+t.height))-y+100};canvasController.focus(box,Math.max(.035,Math.min((viewport.clientWidth-160)/box.width,(viewport.clientHeight-160)/box.height)));canvasSourceFit=null;
@@ -518,7 +533,7 @@ function renderAllMemories(tiles){
  const indexHover=()=>{byPage.clear();byCard.clear();for(const el of layer.querySelectorAll('[data-cards]')){const pg=el.dataset.page;if(!byPage.has(pg))byPage.set(pg,[]);byPage.get(pg).push(el);if(el.dataset.page2){if(!byPage.has(el.dataset.page2))byPage.set(el.dataset.page2,[]);byPage.get(el.dataset.page2).push(el);}/* all6: 짝은 두 쪽 */
   for(const k of el.dataset.cards.split(' '))if(k){if(!byCard.has(k))byCard.set(k,[]);byCard.get(k).push(el);}}};indexHover();
  const cardEls=new Map([...nodes.values()].map(n=>[String(n.k),n.el])),pageEls=new Map([...$$('.canvas-page')].map(el=>[el.dataset.canvasPage,el]));
- let litKey=null,pinned=null,litEls=[];
+ let litKey=null,litEls=[];pinned=null;
  const show=key=>{ // key = 'p:쪽id' | 'c:카드k' | null
   if(litKey===key)return;for(const el of litEls)el.classList.remove('on','lit');litEls=[];litKey=key;
   if(key){const t=key[0],id=key.slice(2),pgs=new Set(t==='p'?[id]:[]),cds=new Set(t==='c'?[id]:[]);
