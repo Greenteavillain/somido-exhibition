@@ -145,6 +145,9 @@ for d in S['diaries']:
         if not Ls: continue
         y0 = min(l[1] for l in Ls) - 14; y1 = max(l[1] for l in Ls) + 5; x0 = min(l[2] for l in Ls) - 4; x1 = max(l[3] for l in Ls) + 4
         boxes.append({'box': [round(x0 / vw, 4), round(y0 / vh, 4), round((x1 - x0) / vw, 4), round((y1 - y0) / vh, 4)], 'reason': m['reason']})
+    # 작가 10-20 "일기장에도 모서리 둥글기 — 실제 인쇄했던 파일 기준 4mm, 오른쪽에만 두 개": 인쇄 파일 = 이 SVG 100%(viewBox 단위 = pt)라 4mm = 11.34pt.
+    #   book1(page.svg)은 종이 path 자체가 오른쪽 모서리 11.34로 둥근데 카드 흰 바탕이 네모라 가려졌음 → 카드를 같은 반지름(폭 비율)으로 자름. book2(538.6pt 폭)도 같은 4mm.
+    s['cornerR'] = round(11.34 / vw, 4)
     s['marks'] = boxes; s['aspect'] = round(vh / vw, 4); s['wallSummary'] = d.get('summary', ''); s['wallKind'] = d['kind']; s['wall'] = d['wall']
     s['image'] = f'assets/diary-svg/{d["file"]}'
     s['content'] = ''   # 공개 파일엔 일기 본문 글을 싣지 않음(손글씨 SVG만 — 작가가 가린 조각이 SVG에만 반영돼 있음)
@@ -258,7 +261,7 @@ def scrub(obj):
     return obj
 # 공개용엔 화면이 쓰는 키만 남김(화이트리스트). 검토 메모(reason·verifier·verifyNote·why…)와 경로·전사(locator·notes·transcription)에 실명이 그대로 있었음
 SRC_KEEP = {'id', 'kind', 'sourceType', 'title', 'summary', 'content', 'status', 'date', 'dateLabel', 'dateKind', 'recordedAt', 'eventDate', 'speaker', 'heardBy', 'heardByGuess', 'sentTo', 'via',
-            'image', 'marks', 'aspect', 'wall', 'wallKind', 'wallSummary', 'episodeIds', 'medium', 'firstSeenExport', 'userCorrected'}
+            'image', 'marks', 'aspect', 'cornerR', 'wall', 'wallKind', 'wallSummary', 'episodeIds', 'medium', 'firstSeenExport', 'userCorrected'}
 ANC_KEEP = {'id', 'page', 'title', 'scope', 'regions', 'episodeIds', 'sourceIds', 'links', 'lanes', 'lineage', 'lineageHops', 'hidden'}
 LINK_KEEP = {'sourceId', 'relation', 'status', 'basis', 'sourceExcerpt', 'publicQuote', 'publicQuoteIsRedacted', 'transform', 'note'}
 REG_KEEP = {'id', 'page', 'rect', 'label'}

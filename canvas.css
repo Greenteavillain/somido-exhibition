@@ -187,7 +187,7 @@ body.canvas-mode{background:#fff;overflow:hidden}
 .memo-card .wall-body .wall-card-foot{margin-top:10px;padding-top:8px;border-top:1px solid #ecebe4}
 .canvas-memory-card .memo-card .excerpt{font-size:11px;line-height:15.5px;max-height:260px}
 /* 일기: 손글씨 SVG + 초록 둥근 형광펜 */
-.diary-card .diary-wrap{position:relative;width:100%;background:#fff;overflow:hidden} /* 10-19 작가: 그림자 없음 */
+.diary-card .diary-wrap{position:relative;width:100%;background:#fff;overflow:hidden} /* 10-19 작가: 그림자 없음. 오른쪽 모서리 둥글기(4mm)는 app.js stageCard가 일기별 inline border-radius로(쪽 폭이 책마다 달라서) */
 .diary-card .diary-wrap img{position:absolute;inset:0;width:100%;height:100%;display:block;margin:0}
 .diary-card .hl{position:absolute;border:2px solid var(--hl);border-radius:6px;opacity:.85;pointer-events:none}
 /* 구술 말풍선·메모 상자: 모양은 app.js drawBubbleShapes가 작가 틀 path 하나로 그림(svg.shape). 상자엔 CSS 테두리 없음 */

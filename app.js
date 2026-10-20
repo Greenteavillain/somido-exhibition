@@ -245,7 +245,8 @@ function stageCard(id,link){
  const s=sourceById.get(id);if(!s)return '';
  if(s.sourceType==='diary'){ // 손글씨 SVG(글은 공개 파일에 없음) + 형광펜 상자(SVG 비율). 높이는 aspect로 미리 정해져 그림이 늦게 와도 배치가 안 흔들림
   const marks=(s.marks||[]).map(m=>`<i class="hl" title="${esc(m.reason||'')}" style="left:${(m.box[0]*100).toFixed(2)}%;top:${(m.box[1]*100).toFixed(2)}%;width:${(m.box[2]*100).toFixed(2)}%;height:${(m.box[3]*100).toFixed(2)}%"></i>`).join('');
-  return `<article class="record-card wall-card diary-card"><div class="diary-wrap" style="aspect-ratio:1/${s.aspect||1.316}">${s.image?`<img src="${esc(s.image)}" alt="일기 ${esc(s.date||'')}" loading="lazy" decoding="async">`:''}${marks}</div></article>`;}
+  const cr=s.cornerR?` ;border-radius:0 ${(s.cornerR*CARD_W.diary).toFixed(2)}px ${(s.cornerR*CARD_W.diary).toFixed(2)}px 0`:''; // 오른쪽 두 모서리 = 인쇄 파일 4mm(작가 10-20, cornerR = 11.34pt/쪽 폭)
+  return `<article class="record-card wall-card diary-card"><div class="diary-wrap" style="aspect-ratio:1/${s.aspect||1.316}${cr}">${s.image?`<img src="${esc(s.image)}" alt="일기 ${esc(s.date||'')}" loading="lazy" decoding="async">`:''}${marks}</div></article>`;}
  if(s.sourceType==='postit')return `<article class="record-card wall-card postit-card"><p class="excerpt" data-canvas-no-pan>${bubbleHTML(s.content||'')}</p></article>`;
  const oral=s.sourceType==='oral_recollection'||s.sourceType==='submitted_story';return bubble(oral?(s.content||''):cleanSeg(sourceText(s)).trim(),oral); // 구술만 꼬리, 메모·대화·초안은 꼬리 없는 상자
 }
