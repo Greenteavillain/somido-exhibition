@@ -150,7 +150,9 @@ function renderCanvas(){
  // Set the full book as the keyboard reset target, then restore the current view.
  fitAll();
  if(initial)canvasController.setCamera(initial);
- else fitAll(); // 처음엔 벽 전체가 보이게
+ else{ // all6(2026-10-20 작가 "처음부터 좀 확대되어 있는 채로 시작"): 벽 전체 맞춤 대신 첫 쪽(책 시작)이 왼쪽 위에 오게 배율 .65(쪽 폭 약 156px)
+  const START_SCALE=.65,t0=tiles[0];
+  if(t0)canvasController.setCamera({x:140-t0.x*START_SCALE,y:120-t0.y*START_SCALE,scale:START_SCALE});else fitAll();}
  if(focused&&canvasSourceFit===focused.id&&tiles.some(t=>t.matched)){
   const matched=tiles.filter(t=>t.matched),x=Math.min(...matched.map(t=>t.x)),y=Math.min(...matched.map(t=>t.y));
   const box={x:x-30,y:y-55,width:Math.max(...matched.map(t=>t.x+t.width))-x+60,height:Math.max(...matched.map(t=>t.y+t.height))-y+100};canvasController.focus(box,Math.max(.035,Math.min((viewport.clientWidth-160)/box.width,(viewport.clientHeight-160)/box.height)));canvasSourceFit=null;
