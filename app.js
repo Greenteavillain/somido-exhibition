@@ -392,7 +392,7 @@ function renderAllMemories(tiles){
  // 문구 크기는 실제로 잰다(긴 문구는 두세 줄로 접혀 위로 자란다). 기본 자리: 가로선 문구는 선 바로 위, 세로선 문구는 선 오른쪽.
  const meas=document.createElement('div');meas.className='chain-hop';meas.style.visibility='hidden';layer.appendChild(meas);const hCache=new Map();
  const labelBox=l=>{const w=l.mode==='h'?Math.max(70,Math.abs(l.x2-l.x1)-14):150,key=l.text+'|'+w;let hh=hCache.get(key);if(hh===undefined){meas.style.width=w+'px';meas.textContent=l.text;hh=meas.offsetHeight;hCache.set(key,hh);}
-  return l.mode==='h'?{x:(l.x1+l.x2)/2-w/2,y:l.y-hh-6,w,h:hh}:{x:l.x1+10,y:l.y-hh/2,w,h:hh};};
+  return l.mode==='h'?{x:(l.x1+l.x2)/2-w/2,y:l.y-hh/2,w,h:hh}:{x:l.x1-w/2,y:l.y-hh/2,w,h:hh};}; // 문구는 선의 한가운데에 가운데 맞춤(작가 10-20 "무조건 가운데 가운데, 화살표랑 겹쳐도 좋음") — 전엔 가운데 점에서 오른쪽 10px·윗변 맞춤이라 가로선에선 취소선처럼 걸쳤음
  // 1) 쪽마다 '쪽+그 쪽 노드' 묶음의 실제 모양(사각형 목록)을 쪽을 원점에 두고 잰다: 쪽, 카드, 문구, 쪽 안의 선(폭 12 띠)
  const GX=60,GY=60,BIN=16;
  const shapeOf=pid=>{const P={x:0,y:0,width:PW,height:PH};const z=chainsBy.has(pid)?zone(pid,P):{pos:new Map(),labels:[],svg:''};
@@ -504,7 +504,7 @@ function renderAllMemories(tiles){
  layer.dataset.routerMs=Math.round(stats.ms);layer.dataset.iters=stats.iters;layer.dataset.routes=`${routed}/${routed+failed}`;
  svg=zoneSvgShort+shortenArrows(svg.slice(zoneSvgShort.length));
  const lines=$('.canvas-memory-lines',layer);lines.innerHTML=lines.querySelector('defs').outerHTML+svg;
- let lh='';for(const l of labels.filter(l=>l.text)){if(l.mode==='h'){const w=Math.max(70,Math.abs(l.x2-l.x1)-14);lh+=`<div class="chain-hop" data-mode="h" data-y="${l.y}" data-page="${esc(l.page)}" data-cards="${l.cards||''}"${l.cross?' data-cross="1"':''} style="width:${w}px;left:${(l.x1+l.x2)/2-w/2}px;top:${l.y}px">${esc(l.text)}</div>`;}else lh+=`<div class="chain-hop" data-mode="v" data-y="${l.y}" data-page="${esc(l.page)}" data-cards="${l.cards||''}"${l.cross?' data-cross="1"':''} style="width:150px;text-align:left;left:${l.x1+10}px;top:${l.y}px">${esc(l.text)}</div>`;}
+ let lh='';for(const l of labels.filter(l=>l.text)){if(l.mode==='h'){const w=Math.max(70,Math.abs(l.x2-l.x1)-14);lh+=`<div class="chain-hop" data-mode="h" data-y="${l.y}" data-page="${esc(l.page)}" data-cards="${l.cards||''}"${l.cross?' data-cross="1"':''} style="width:${w}px;left:${(l.x1+l.x2)/2-w/2}px;top:${l.y-labelBox(l).h/2}px">${esc(l.text)}</div>`;}else lh+=`<div class="chain-hop" data-mode="v" data-y="${l.y}" data-page="${esc(l.page)}" data-cards="${l.cards||''}"${l.cross?' data-cross="1"':''} style="width:150px;left:${l.x1-75}px;top:${l.y-labelBox(l).h/2}px">${esc(l.text)}</div>`;}
  layer.insertAdjacentHTML('beforeend',lh);
  // 문구끼리 겹치면 비켜 놓는다: 가로선 문구는 위로, 세로선 문구는 아래로 한 칸씩(카드 위로는 올리지 않음)
  const cardRects=[...nodes.values()].filter(n=>pos.has(n.st.id)).map(n=>{const v=pos.get(n.st.id);return {x:v.x,y:v.y,w:n.w,h:n.h};});
