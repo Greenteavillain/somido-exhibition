@@ -103,6 +103,9 @@ function render(){
  if(state.view==='reader')renderReader();else renderCanvas();
 }
 function savePrefs(){try{localStorage.setItem('somido-exhibition-prefs',JSON.stringify({pair:state.pair}));}catch(e){}}
+// all6(2026-10-20 작가): Tab 키 = 브라우저 전체화면(Fullscreen API) 켜고 끄기. 크롬 메뉴의 전체화면과 달리 탭·주소줄·메뉴줄이 다 사라짐. 전시장 아이맥에서 한 번 누르면 됨
+window.addEventListener('keydown',e=>{if(e.key!=='Tab'||e.metaKey||e.ctrlKey||e.altKey)return;const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable))return;e.preventDefault();
+ if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});}else{const el=document.documentElement;(el.requestFullscreen?el.requestFullscreen({navigationUI:'hide'}):el.webkitRequestFullscreen?Promise.resolve(el.webkitRequestFullscreen()):Promise.reject()).catch(()=>toast('전체화면을 켤 수 없습니다 (브라우저가 막음)'));}});
 function renderCanvas(){
  // 2026-10-03 작가 요청: 펼침면이어도 페이지 사이 여백은 전부 같게. gap 하나가 가로·세로 간격을 모두 정한다.
  const pageW=240,pageH=pageW*1068/852,gap=24,rowH=pageH+gap;
@@ -279,7 +282,9 @@ function startCrossRouting(input,cb){
 }
 function renderAllMemories(tiles){
  const layer=$('.canvas-memory-layer');if(!layer)return null;const T0=performance.now();
- const HG=150,VG=36,ARROW=46,LANE_GAP=70,VGAP=84,VERTICAL_WIDTH=1250,PAD=200,PER_ROW=15,PW=240,PH=240*1068/852;
+ const HG=90,VG=36,ARROW=46,LANE_GAP=70,VGAP=84,VERTICAL_WIDTH=1250,PAD=200,PER_ROW=15,PW=240,PH=240*1068/852;
+ // all6(2026-10-20 작가 "화살표 길이 너무 긴 것 같지 않음?"): 기본 간격 150→90. 문구가 달린 화살표만 문구 한 줄 폭(글자 수×10.5px, 최대 180)+14에 맞춰 넓힘
+ const gapFor=text=>text?Math.max(HG,Math.min(194,Math.ceil(String(text).length*10.5)+14)):HG;
  const pages=B.book.pages.map(p=>p.id),chainsBy=new Map();
  for(const pid of pages){const cs=canvasPageChains(pid);if(cs.length)chainsBy.set(pid,cs);}
  const nodes=new Map();let html='<svg class="canvas-memory-lines" aria-hidden="true"><defs><marker id="chain-arrow" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="7" markerHeight="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 z" fill="#8f9b80"/></marker></defs></svg>';
@@ -299,19 +304,19 @@ function renderAllMemories(tiles){
   const lab=(text,x1,x2,y,mode)=>{if(text)out.labels.push({text,x1,x2,y,mode,cards:curCards});};
   const tgt=(c,edge)=>{const t=[];for(const r of c.regions){const x=edge==='top'?P.x+(r.rect[0]+r.rect[2]/2)*P.width:P.x+r.rect[0]*P.width,y=edge==='top'?P.y+r.rect[1]*P.height:P.y+(r.rect[1]+r.rect[3]/2)*P.height;if(!t.some(o=>Math.abs(o.x-x)<20&&Math.abs(o.y-y)<20))t.push({x,y});}return t;};
   const cs=chainsBy.get(pid)||[];let rowTop=-Infinity,hIndex=0,vi=0,prevRight=-Infinity;
-  const plans=cs.map((c,ci)=>{const ml=c.stages.filter(s=>!s.ref),dl=c.dstages.filter(s=>!s.ref);const width=ml.reduce((n,s)=>n+nodes.get(s.id).w+HG,0);return {c,ci,ml,dl,vertical:ml.length>=4||width>VERTICAL_WIDTH};});
+  const plans=cs.map((c,ci)=>{const ml=c.stages.filter(s=>!s.ref),dl=c.dstages.filter(s=>!s.ref);const width=ml.reduce((n,s)=>n+nodes.get(s.id).w+HG,0);return {c,ci,ml,dl,vertical:ml.length>=4||width>VERTICAL_WIDTH};}); // 폭 판단은 기본 간격으로
   // 줄 안의 이웃 화살표: 둘 다 이 쪽에 놓인 카드면 바로 잇고, 하나라도 다른 쪽 카드면 cross로 넘긴다
   const laneEdges=(c,list,label,mode,getEntry)=>{for(let k=0;k<list.length-1;k++){const u=list[k],v=list[k+1];const txt=c.hop(u.id,v.id);if(!u.ref&&!v.ref)continue;out.cross.push({from:u.id,to:v.id,label:txt});}};
   for(const p of plans.filter(p=>!p.vertical)){
    const s0=out.svg.length,c0=out.cross.length;curCards=chainCards(p.c);
    const {c,ci,ml,dl}=p,ry=Math.min(...c.regions.map(r=>r.rect[1])),rh=Math.max(...c.regions.map(r=>r.rect[1]+r.rect[3]))-ry,targetY=P.y+(ry+rh/2)*P.height;
    const top=Math.max(targetY-ARROW,rowTop+VG);
-   const row=(list,t)=>{let edge=P.x-HG;const xs=[];for(let k=list.length-1;k>=0;k--){const w=nodes.get(list[k].id).w;xs[k]=edge-w;edge-=w+HG;}list.forEach((s,k)=>put(s.id,xs[k],t));return {xs,ay:t+ARROW,h:Math.max(0,...list.map(s=>nodes.get(s.id).h))};};
+   const row=(list,t,lastLabel)=>{let edge=P.x-gapFor(lastLabel);const xs=[];for(let k=list.length-1;k>=0;k--){const w=nodes.get(list[k].id).w;xs[k]=edge-w;edge-=w+(k>0?gapFor(c.hop(list[k-1].id,list[k].id)):0);}list.forEach((s,k)=>put(s.id,xs[k],t));return {xs,ay:t+ARROW,h:Math.max(0,...list.map(s=>nodes.get(s.id).h))};};
    const rowArrows=(full,list,R)=>{for(let k=0;k<list.length-1;k++){const iu=full.indexOf(list[k]),iv=full.indexOf(list[k+1]);if(iv!==iu+1)continue;const x1=R.xs[k]+nodes.get(list[k].id).w,x2=R.xs[k+1];out.svg+=`<path d="M ${x1} ${R.ay} L ${x2} ${R.ay}" marker-end="url(#chain-arrow)"/>`;lab(c.hop(list[k].id,list[k+1].id),x1,x2,R.ay,'h');}};
    let bottom=top;const trunks=[];
-   if(ml.length){const R=row(ml,top);rowArrows(c.stages,ml,R);bottom=top+R.h;if(!c.stages[c.stages.length-1].ref)trunks.push({x:R.xs[ml.length-1]+nodes.get(ml[ml.length-1].id).w,y:R.ay,label:c.lastHop});}
+   if(ml.length){const R=row(ml,top,c.lastHop);rowArrows(c.stages,ml,R);bottom=top+R.h;if(!c.stages[c.stages.length-1].ref)trunks.push({x:R.xs[ml.length-1]+nodes.get(ml[ml.length-1].id).w,y:R.ay,label:c.lastHop});}
    laneEdges(c,c.stages);
-   if(dl.length){const dtop=bottom+(ml.length?LANE_GAP:0);const R=row(dl,dtop);rowArrows(c.dstages,dl,R);bottom=dtop+R.h;const dLast=c.dstages[c.dstages.length-1];
+   if(dl.length){const dtop=bottom+(ml.length?LANE_GAP:0);const R=row(dl,dtop,c.dLastHop);rowArrows(c.dstages,dl,R);bottom=dtop+R.h;const dLast=c.dstages[c.dstages.length-1];
     if(!dLast.ref){if(c.into==='comic'||!out.pos.has(c.into))trunks.push({x:R.xs[dl.length-1]+nodes.get(dLast.id).w,y:R.ay,label:c.dLastHop});else out.cross.push({from:dLast.id,to:c.into,label:c.dLastHop});}}
    laneEdges(c,c.dstages);
    rowTop=bottom;
@@ -558,7 +563,7 @@ function renderAllMemories(tiles){
   const ord=new Map();const setOrd=()=>layers.forEach(l=>l.forEach((n,i)=>ord.set(n.k,(i+.5)/l.length)));setOrd();
   for(let pass=0;pass<3;pass++){for(let l=R-1;l>=0;l--){const bc=n=>{const ss=[...n.succ];return ss.length?ss.reduce((t,s)=>t+ord.get(s),0)/ss.length:ord.get(n.k);};layers[l].sort((x,y)=>bc(x)-bc(y));setOrd();}}
   // 3) 자리: 열은 오른쪽(만화 쪽)부터, 열 사이 260(화살표·문구 자리). 세로는 이웃 가운데에 맞추고 겹치면 아래로.
-  const GX=260,GY=40,cw=layers.map(l=>Math.max(...l.map(n=>n.w)));
+  const GX=140,GY=40,cw=layers.map(l=>Math.max(...l.map(n=>n.w))); // all6: 260→140(작가 "화살표 너무 김". 문구는 선을 따라 두 줄로 접혀도 됨)
   let x=0;for(let l=R;l>=0;l--){if(l<R)x-=GX+cw[l];for(const n of layers[l])n.fx=x+(l<R?cw[l]-n.w:0);}
   let y=0;for(const n of layers[R]){n.fy=y;y+=n.h+60;}
   for(let l=R-1;l>=0;l--){const want=layers[l].map(n=>{const ss=[...n.succ].map(s=>N.get(s));const cy=ss.reduce((t,s)=>t+s.fy+s.h/2,0)/ss.length;return {n,y:cy-n.h/2};}).sort((a,b)=>a.y-b.y);
