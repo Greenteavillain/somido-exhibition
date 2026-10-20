@@ -18,7 +18,8 @@ const pageById = new Map(B.book.pages.map(p=>[p.id,p]));
 const emptyAuthor=()=>({schemaVersion:1,sources:[],anchors:[],sourcePatches:{},anchorPatches:{},bookHash:B.book.sourceHash});
 const compatibleAuthor=v=>v.bookHash===B.book.sourceHash||(!v.bookHash&&!v.anchors?.length&&!Object.keys(v.anchorPatches||{}).length);
 let author=clone(B.author), sources=[], anchors=[], sourceById, anchorById, spreads=[], serverRevision=null, api=false, saveChain=Promise.resolve(), restorePending=null;
-const localKey='somido-all6-author-v1'; // all6: all4의 브라우저 임시 저장(옛 구술 장면 편집)이 섞이지 않게 키를 바꿈
+const localKey='somido-all6-author-v1';
+const EDIT_MODE=new URLSearchParams(location.search).has('edit'); // all6: 전시장에선 아무것도 못 바꾸게 — 포스트잇 옮기기·E/O 편집은 주소에 ?edit 가 있을 때만 // all6: all4의 브라우저 임시 저장(옛 구술 장면 편집)이 섞이지 않게 키를 바꿈
 const publicOverrides = new Map();
 for (const a of B.anchors) for (const l of a.links) if(l.publicQuoteIsRedacted){const previous=publicOverrides.get(l.sourceId)||[];if(!previous.includes(l.publicQuote))previous.push(l.publicQuote);publicOverrides.set(l.sourceId,previous);}
 function validLink(l){ return l.status !== 'rejected' && (state.candidates || l.status==='confirmed'); }
@@ -435,9 +436,10 @@ function renderAllMemories(tiles){
   layer.insertAdjacentHTML('afterbegin',`<svg class="wall-lines thread-lines" aria-hidden="true">${tsvg}</svg><svg class="wall-lines pair-lines" aria-hidden="true">${psvg}</svg>`); // canvas-memory-lines 클래스를 주면 finishRoutes의 $('.canvas-memory-lines')가 이걸 집어 화살표를 여기 넣고 defs를 못 찾아 죽음
   layer.insertAdjacentHTML('beforeend',notes+plab);
   // 작가(10-20) "포스트잇이 위치조절이 되어야": 보일 때 끌어서 옮길 수 있고, 옮긴 거리는 이 브라우저에 저장(localStorage somido-all6-notes, 자동 자리 기준). 콘솔 somidoNotesExport()로 JSON 복사
-  const NOTE_KEY='somido-all6-notes';let savedNotes={};try{savedNotes=JSON.parse(localStorage.getItem(NOTE_KEY)||'{}');}catch(e){}
+  // 전시장에선 못 옮김(관람객이 흐트러뜨린 게 남지 않게). 확정 자리는 레포 파일(B.noteOffsets ← data/note_offsets.json)에서만 읽고, ?edit 일 때만 끌어서 localStorage에 임시 저장 → somidoNotesExport()로 뽑아 파일에 넣음
+  const NOTE_KEY='somido-all6-notes';let savedNotes=Object.assign({},B.noteOffsets||{});if(EDIT_MODE){try{Object.assign(savedNotes,JSON.parse(localStorage.getItem(NOTE_KEY)||'{}'));}catch(e){}}
   for(const el of layer.querySelectorAll('.thread-note')){const k=el.dataset.thread+':'+el.dataset.i,o=savedNotes[k];if(o){el.style.left=(parseFloat(el.dataset.bx)+o[0])+'px';el.style.top=(parseFloat(el.dataset.by)+o[1])+'px';}
-   el.setAttribute('data-canvas-no-pan','');
+   if(!EDIT_MODE)continue;el.setAttribute('data-canvas-no-pan','');el.classList.add('editable');
    el.addEventListener('pointerdown',e=>{if(e.button||el.classList.contains('moved-on'))return;e.stopPropagation();e.preventDefault();const sc=canvasCamera?canvasCamera.scale:1,x0=e.clientX,y0=e.clientY,l0=parseFloat(el.style.left),t0=parseFloat(el.style.top);let dragged=false;
     const mv=ev=>{const dx=(ev.clientX-x0)/sc,dy=(ev.clientY-y0)/sc;if(Math.abs(dx)+Math.abs(dy)>2)dragged=true;el.style.left=(l0+dx)+'px';el.style.top=(t0+dy)+'px';};
     const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);if(!dragged)return;savedNotes[k]=[+(parseFloat(el.style.left)-parseFloat(el.dataset.bx)).toFixed(1),+(parseFloat(el.style.top)-parseFloat(el.dataset.by)).toFixed(1)];try{localStorage.setItem(NOTE_KEY,JSON.stringify(savedNotes));}catch(e){}};
@@ -916,7 +918,7 @@ async function importAuthor(file){try{const data=JSON.parse(await file.text());c
 window.addEventListener('hashchange',route);window.addEventListener('resize',()=>{fitComicPages();drawConnections();});document.addEventListener('scroll',()=>{if(state.view==='reader')drawConnections();},true);
 // 2026-10-03 작가 요청으로 화면의 버튼(편집·구술·도움말·배율·전체 지도·회차 이동)을 전부 없앴다. 기능은 남겨 두고 단축키로만 연다: E 편집, O 구술·회상, ? 도움말·내보내기. 이동·확대는 canvas-engine.js(방향키, +/−, 0=전체 맞춤).
 function toggleEditing(){state.editing=!state.editing;state.draw=false;state.draftRegions=[];state.redrawId=null;render();toast(state.editing?'편집 켬 · 쪽을 누르면 영역·연결 편집으로 갑니다 (E로 끔)':'편집 끔');}
-document.addEventListener('keydown',e=>{if($('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey)return;if(e.code==='KeyE'){e.preventDefault();toggleEditing();}else if(e.code==='KeyO'){e.preventDefault();openOral();}else if(e.key==='?'){e.preventDefault();$('#help-open').click();}});
+document.addEventListener('keydown',e=>{if($('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey)return;if(e.code==='KeyE'&&EDIT_MODE){e.preventDefault();toggleEditing();}else if(e.code==='KeyO'&&EDIT_MODE){e.preventDefault();openOral();}else if(e.key==='?'){e.preventDefault();$('#help-open').click();}});
 document.addEventListener('keydown',e=>{if(state.view==='book'&&e.key==='Escape'&&!$('dialog[open]')&&!['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)){clearCanvasSelection();return;}if(state.view!=='reader'||$('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;if(e.key==='ArrowRight'){e.preventDefault();moveSpread(1);}if(e.key==='ArrowLeft'){e.preventDefault();moveSpread(-1);}if(e.key==='Escape'&&state.anchor){selectAnchor(null);}});
 
 $('#help-open').onclick=()=>{const d=$('#help-dialog');const old=$('#restore-pending');if(old)old.remove();if(restorePending){const box=document.createElement('div');box.id='restore-pending';box.className='warning';box.textContent='이전 판본에서 저장한 기록이 남아 있습니다. 현재 자료를 덮어쓰지 않고 별도로 보관했습니다. ';const b=document.createElement('button');b.textContent='이전 추가 기록 내보내기';b.onclick=()=>exportFile({schemaVersion:1,bookHash:restorePending.state.bookHash||restorePending.bookHash,state:restorePending.state},'소미도_이전추가기록_'+today()+'.json');box.append(b);d.append(box);}d.showModal();};bindClose($('#help-dialog'));if($('#export-author'))$('#export-author').onclick=exportAuthor;if($('#import-author'))$('#import-author').onchange=e=>{if(e.target.files[0])importAuthor(e.target.files[0]);e.target.value='';}; // all6: 도움말에서 내보내기·가져오기 단추를 뺌

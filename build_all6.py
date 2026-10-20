@@ -286,7 +286,8 @@ cuts_by_pid = {}
 for cid, c in S['cuts'].items():
     pid = pid_of_page.get(int(cid[:3]))
     if pid: cuts_by_pid.setdefault(pid, []).append([round(v, 4) for v in c['box']] + [cid])
-out = {'schemaVersion': 1, 'book': book, 'cuts': cuts_by_pid, 'sources': list(src.values()), 'anchors': list(anchors.values()), 'relationLabels': B.get('relationLabels', {}),
+note_offsets = json.loads((HERE / 'data' / 'note_offsets.json').read_text()) if (HERE / 'data' / 'note_offsets.json').exists() else {}   # 작가가 ?edit 에서 옮긴 실 포스트잇 자리(somidoNotesExport() 결과)
+out = {'schemaVersion': 1, 'book': book, 'cuts': cuts_by_pid, 'noteOffsets': note_offsets, 'sources': list(src.values()), 'anchors': list(anchors.values()), 'relationLabels': B.get('relationLabels', {}),
        'author': {'schemaVersion': 1, 'sources': [], 'anchors': [], 'sourcePatches': {}, 'anchorPatches': {}, 'bookHash': book['sourceHash']},
        'floeVersions': fv, 'threads': threads, 'pairs': pairs, 'meta': {**B.get('meta', {}), 'all6': '2026-10-19 벽 재료로 교체'}, 'revision': 'all6-2026-10-19'}
 (HERE / 'data' / 'book.json').write_text(json.dumps(book, ensure_ascii=False, indent=1))
