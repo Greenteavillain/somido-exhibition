@@ -578,6 +578,15 @@ function renderAllMemories(tiles){
   // 4) 누른 것을 지금 보이는 자리에 고정하고 나머지를 옮긴다
   const anchor=N.get(key[0]==='p'?'p'+key.slice(2):key[0]==='q'?'p'+key.split(':')[1]:'c'+idOfK.get(key.slice(2))),off=curOff.get(anchor.el)||{x:0,y:0};const ax=anchor.ox+off.x-anchor.fx,ay=anchor.oy+off.y-anchor.fy;
   for(const n of N.values()){n.fx+=ax;n.fy+=ay;}
+  // all6(2026-10-20 작가 "클릭하면 컷 사이 연결해주는 굵은 선… 왜 안 오는 것 같지?" / "연결되는 컷도 앞뒤로 당겨오면"): 쪽 단위 과정에서도
+  //   실 앞뒤 쪽·짝 쪽을 당겨 온다 — 앞 쪽은 묶음 왼쪽 끝 너머, 뒤 쪽은 쪽 오른쪽. 실 선은 매듭 컷 가운데→가운데(테두리 여백). 컷 과정('q')에선 안 당김
+  const lines=[];
+  if(key[0]==='p'){const pid=key.slice(2),PN=N.get('p'+pid);let lx=Math.min(...[...N.values()].map(n=>n.fx))-PW-120,rx=PN.fx+PN.w+120,ly=PN.fy,ry=PN.fy;
+   const pull=(qid,side)=>{const k='p'+qid;if(N.has(k))return N.get(k);const Q=pageBox.get(qid);if(!Q||!spreadEl.get(qid))return null;const nn={k,kind:'page',pid:qid,el:spreadEl.get(qid),w:PW,h:PH,ox:Q.x,oy:Q.y,fx:side<0?lx:rx,fy:side<0?ly:ry,succ:new Set()};if(side<0)ly+=PH+40;else ry+=PH+40;N.set(k,nn);return nn;};
+   for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid)continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect}});}}}
+   for(const p of (B.pairs||[])){const me=p.first.page===pid?p.first:p.last.page===pid?p.last:null;if(!me)continue;const o=me===p.first?p.last:p.first;if(o.page===pid)continue;if(pull(o.page,me===p.first?1:-1))lines.push({cls:'pair',a:{pid,rect:me.rect},b:{pid:o.page,rect:o.rect}});}}
+  const ccL=pt=>{const n=N.get('p'+pt.pid),r={x:n.fx+pt.rect[0]*n.w,y:n.fy+pt.rect[1]*n.h,w:pt.rect[2]*n.w,h:pt.rect[3]*n.h};return {x:r.x+r.w/2,y:r.y+r.h/2,r};};
+  const threadLines=lines.map(l=>{const a=ccL(l.a),b=ccL(l.b),z=clipSeg(a,a.r,b,b.r);return {cls:l.cls,a:z[0],b:z[1]};});
   // 5) 화살표: 모인 자리로 작은 판을 만들어 길찾기(카드·쪽을 피해 가로·세로로만)
   const nodesArr=[...N.values()],minX=Math.min(...nodesArr.map(n=>n.fx))-160,minY=Math.min(...nodesArr.map(n=>n.fy))-160;
   const maxX=Math.max(...nodesArr.map(n=>n.fx+n.w))+160,maxY=Math.max(...nodesArr.map(n=>n.fy+n.h))+160;
@@ -590,7 +599,7 @@ function renderAllMemories(tiles){
    else{const T=loc(Bn);goals.push({a,ar,bx:T.x+T.w/2,by:T.y+T.h/2,br:T,dir:'left',comicP:null});gEdge.push(e);}}
   const routed=goals.map(g=>clipSeg(g.a,g.ar,{x:g.bx,y:g.by},g.br)); // all6: 가운데→가운데 곧은 선, 테두리+여백에서 끊음
   const paths=routed.map((r,i)=>{const z=(r||[{x:goals[i].a.x,y:goals[i].a.y},{x:goals[i].bx,y:goals[i].by}]).map(p=>({x:p.x+minX,y:p.y+minY}));return {z,e:gEdge[i]};});
-  return {N,paths};
+  return {N,paths,lines:threadLines};
  };
  // 떠나는 것: focus-on은 바로 떼고(그래서 바로 흐려짐) focus-back을 돌아가는 시간(SPRING_MS)+0.1초 붙여, 돌아가는 동안만 흐린 것들 위·새 묶음 아래로 지나가게.
  //   (검토에서 확인: 예전엔 focus-on을 1.1초 남겨서 안 흐려진 채 새 선 위로 날아갔고, 1.1초 안에 연달아 풀면 타이머가 지워져 영영 남았음)
