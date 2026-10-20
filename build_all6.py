@@ -282,7 +282,11 @@ if bad:
     print('⚠⚠ --dev: 금지어가 남은 채로 씀 — 이 bundle.js는 올리면 안 됨')
 
 # ── 10. 쓰기 ──
-out = {'schemaVersion': 1, 'book': book, 'sources': list(src.values()), 'anchors': list(anchors.values()), 'relationLabels': B.get('relationLabels', {}),
+cuts_by_pid = {}
+for cid, c in S['cuts'].items():
+    pid = pid_of_page.get(int(cid[:3]))
+    if pid: cuts_by_pid.setdefault(pid, []).append([round(v, 4) for v in c['box']] + [cid])
+out = {'schemaVersion': 1, 'book': book, 'cuts': cuts_by_pid, 'sources': list(src.values()), 'anchors': list(anchors.values()), 'relationLabels': B.get('relationLabels', {}),
        'author': {'schemaVersion': 1, 'sources': [], 'anchors': [], 'sourcePatches': {}, 'anchorPatches': {}, 'bookHash': book['sourceHash']},
        'floeVersions': fv, 'threads': threads, 'pairs': pairs, 'meta': {**B.get('meta', {}), 'all6': '2026-10-19 벽 재료로 교체'}, 'revision': 'all6-2026-10-19'}
 (HERE / 'data' / 'book.json').write_text(json.dumps(book, ensure_ascii=False, indent=1))
