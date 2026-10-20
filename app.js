@@ -589,7 +589,7 @@ function renderAllMemories(tiles){
   const lines=[];
   if(key[0]==='p'||key[0]==='q'){const pid=key[0]==='p'?key.slice(2):key.split(':')[1],PN=N.get('p'+pid);const onlyCut=key[0]==='q'?((CUTS[pid]||[])[+key.split(':')[2]]||[])[4]:null; // 컷 과정이면 그 컷이 매듭일 때만
    // 앞 쪽은 쪽 '위'에(왼쪽엔 카드 사슬이 있어 선이 카드 위를 지나감), 뒤 쪽은 오른쪽에
-   let ux=PN.fx,uy=PN.fy-PH-60,rx=PN.fx+PN.w+120,ry=PN.fy;
+   let ux=PN.fx,uy=PN.fy-PH-200,rx=PN.fx+PN.w+220,ry=PN.fy; // 틈 = 매듭 포스트잇(150)이 선 가운데에 들어갈 만큼
    const pull=(qid,side)=>{const k='p'+qid;if(N.has(k))return N.get(k);const Q=pageBox.get(qid);if(!Q||!spreadEl.get(qid))return null;const nn={k,kind:'page',pid:qid,el:spreadEl.get(qid),w:PW,h:PH,ox:Q.x,oy:Q.y,fx:side<0?ux:rx,fy:side<0?uy:ry,succ:new Set()};if(side<0)uy-=PH+40;else ry+=PH+40;N.set(k,nn);return nn;};
    for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid||(onlyCut&&ns[i].cut!==onlyCut))continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect},note:[t.id,Math.max(i,j)]});}}}
    for(const p of (B.pairs||[])){const me=p.first.page===pid?p.first:p.last.page===pid?p.last:null;if(!me||(onlyCut&&me.cut!==onlyCut))continue;const o=me===p.first?p.last:p.first;if(o.page===pid)continue;if(pull(o.page,me===p.first?1:-1))lines.push({cls:'pair',a:{pid,rect:me.rect},b:{pid:o.page,rect:o.rect}});}}
@@ -631,7 +631,7 @@ function renderAllMemories(tiles){
   focusSvg.innerHTML=F.paths.map(({z})=>`<path d="${shorten('M '+z.map(p=>p.x+' '+p.y).join(' L '))}" marker-end="url(#chain-arrow)"/>`).join('')+(F.lines||[]).map(l=>`<path class="${l.cls}" d="M ${l.a.x.toFixed(1)} ${l.a.y.toFixed(1)} L ${l.b.x.toFixed(1)} ${l.b.y.toFixed(1)}"/>`).join(''); // all6: 당겨 온 쪽까지의 실·짝 선
   for(const el of movedNotes){el.style.transform='';el.classList.remove('moved-on');}movedNotes=[];
   for(const l of (F.lines||[])){if(!l.note)continue;const el=layer.querySelector(`.thread-note[data-thread="${l.note[0]}"][data-i="${l.note[1]}"]`);if(!el)continue;const mx=(l.a.x+l.b.x)/2,my=(l.a.y+l.b.y)/2,lx=parseFloat(el.style.left),ly=parseFloat(el.style.top),vert=Math.abs(l.b.y-l.a.y)>Math.abs(l.b.x-l.a.x);
-   const nx=vert?mx+12:mx-75,ny=vert?my-75:my+12; // 세로 선이면 선 오른쪽, 가로 선이면 선 아래(선 위에 얹으면 쪽을 덮음)
+   const nx=mx-75,ny=my-75; // 선 가운데(벽의 포스트잇처럼). 틈을 넓혀 쪽을 안 덮음
    el.style.transform=`translate(${(nx-lx).toFixed(1)}px,${(ny-ly).toFixed(1)}px) rotate(-1.5deg)`;el.classList.add('moved-on');movedNotes.push(el);} // pin-on은 threadLit(null)이 지우므로 다른 클래스 // 매듭 포스트잇을 새 선 가운데로
   const boxes=next.map(n=>({x:n.fx,y:n.fy,w:n.w,h:n.h})),segs=[];for(const {z} of F.paths)for(let k=0;k+1<z.length;k++)segs.push({x:Math.min(z[k].x,z[k+1].x)-2,y:Math.min(z[k].y,z[k+1].y)-2,w:Math.abs(z[k+1].x-z[k].x)+4,h:Math.abs(z[k+1].y-z[k].y)+4});
   const hit=(a,b)=>a.x<b.x+b.w-1&&b.x<a.x+a.w-1&&a.y<b.y+b.h-1&&b.y<a.y+a.h-1,placed=[],done=new Set();
@@ -673,7 +673,7 @@ function renderAllMemories(tiles){
   place(grp.diary,P.y-48,-1);let y=place(grp.oral,P.y+P.height+48,1);place(grp.memo,y,1);
   let py=P.y;for(const it of grp.postit){add(it,P.x+P.width+48,py);py+=it.n.h+16;}
   // 실 앞뒤 쪽·짝 쪽을 좌우로 당겨 옴(선은 곧게, 화살촉 없음)
-  const lines=[];let ly=P.y,ry=P.y;const lx=P.x-PW-120,rx=P.x+P.width+120+(grp.postit.length?198:0);
+  const lines=[];let ly=P.y,ry=P.y;const lx=P.x-PW-220,rx=P.x+P.width+220+(grp.postit.length?198:0);
   const pull=(qid,side)=>{const k='p'+qid;if(N.has(k))return N.get(k);const Q=pageBox.get(qid);if(!Q||!spreadEl.get(qid))return null;const nn={k,kind:'page',pid:qid,el:spreadEl.get(qid),w:PW,h:PH,ox:Q.x,oy:Q.y,fx:side<0?lx:rx,fy:side<0?ly:ry,succ:new Set()};if(side<0)ly+=PH+40;else ry+=PH+40;N.set(k,nn);return nn;};
   for(const t of (B.threads||[])){const ns=t.nodes;for(let i=0;i<ns.length;i++){if(ns[i].page!==pid)continue;for(const [j,side] of [[i-1,-1],[i+1,1]]){const m=ns[j];if(!m||m.page===pid)continue;if(pull(m.page,side))lines.push({cls:t.id,a:{pid,rect:ns[i].rect},b:{pid:m.page,rect:m.rect},note:[t.id,Math.max(i,j)]});}}}
   for(const p of (B.pairs||[])){const me=p.first.page===pid?p.first:p.last.page===pid?p.last:null;if(!me)continue;const o=me===p.first?p.last:p.first;if(o.page===pid)continue;if(pull(o.page,me===p.first?1:-1))lines.push({cls:'pair',a:{pid,rect:me.rect},b:{pid:o.page,rect:o.rect}});}
