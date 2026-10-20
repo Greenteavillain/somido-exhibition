@@ -320,12 +320,10 @@ function renderAllMemories(tiles){
     if(!dLast.ref){if(c.into==='comic'||!out.pos.has(c.into))trunks.push({x:R.xs[dl.length-1]+nodes.get(dLast.id).w,y:R.ay,label:c.dLastHop});else out.cross.push({from:dLast.id,to:c.into,label:c.dLastHop});}}
    laneEdges(c,c.dstages);
    rowTop=bottom;
-   const elbow=P.x-22-hIndex*10;hIndex++;const targets=tgt(c,'left');
-   for(const [list,last] of [[c.stages,c.lastHop],[c.dstages,c.dLastHop]]){const s=list[list.length-1];if(s&&s.ref)out.cross.push({from:s.id,toComic:targets,label:last,elbow});}
-   if(trunks.length){const ys=targets.map(t=>t.y).concat(trunks.map(t=>t.y)),lo=Math.min(...ys),hi=Math.max(...ys);
-    for(const t of trunks){out.svg+=`<path d="M ${t.x} ${t.y} L ${elbow} ${t.y}"/>`;lab(t.label,t.x,elbow,t.y,'h');}
-    if(hi-lo>=1)out.svg+=`<path d="M ${elbow} ${lo} L ${elbow} ${hi}"/>`;
-    for(const t of targets)out.svg+=`<path d="M ${elbow} ${t.y} L ${t.x} ${t.y}" marker-end="url(#chain-arrow)"/>`;}
+   // all6(2026-10-20 작가 "꺾이는거 좀 못생겼는데 그냥 대각선이어도 될 듯"): 꺾임(elbow·bus) 없이 카드에서 칸까지 곧은 선. 문구는 첫 선의 가운데 옆('d')
+   const targets=tgt(c,'left');hIndex++;
+   for(const [list,last] of [[c.stages,c.lastHop],[c.dstages,c.dLastHop]]){const s=list[list.length-1];if(s&&s.ref)out.cross.push({from:s.id,toComic:targets,label:last});}
+   for(const t of trunks)targets.forEach((g,gi)=>{out.svg+=`<path d="M ${t.x} ${t.y} L ${g.x} ${g.y}" marker-end="url(#chain-arrow)"/>`;if(gi===0)lab(t.label,(t.x+g.x)/2,(t.x+g.x)/2,(t.y+g.y)/2,'d');});
    wrap(s0,c0);
   }
   for(const p of plans.filter(p=>p.vertical).sort((a,b)=>Math.min(...a.c.regions.map(r=>r.rect[0]))-Math.min(...b.c.regions.map(r=>r.rect[0])))){
@@ -342,11 +340,8 @@ function renderAllMemories(tiles){
    if(dl.length){const ax=stack(c.dstages,dl,cx-mW/2-dGap-dW/2);const dLast=c.dstages[c.dstages.length-1];if(!dLast.ref){if(c.into==='comic'||!out.pos.has(c.into))legs.push({x:ax,label:c.dLastHop});else out.cross.push({from:dLast.id,to:c.into,label:c.dLastHop});}}
    laneEdges(c,c.dstages);
    const targets=tgt(c,'top');
-   for(const [list,last] of [[c.stages,c.lastHop],[c.dstages,c.dLastHop]]){const s=list[list.length-1];if(s&&s.ref)out.cross.push({from:s.id,toComicTop:targets,label:last,busY});}
-   if(legs.length){const xs=targets.map(t=>t.x).concat(legs.map(l=>l.x)),lo=Math.min(...xs),hi=Math.max(...xs);
-    for(const l of legs){out.svg+=`<path d="M ${l.x} ${bottomY} L ${l.x} ${busY}"/>`;lab(l.label,l.x,l.x,(bottomY+busY)/2,'v');}
-    if(hi-lo>=1)out.svg+=`<path d="M ${lo} ${busY} L ${hi} ${busY}"/>`;
-    for(const t of targets)out.svg+=`<path d="M ${t.x} ${busY} L ${t.x} ${t.y}" marker-end="url(#chain-arrow)"/>`;}
+   for(const [list,last] of [[c.stages,c.lastHop],[c.dstages,c.dLastHop]]){const s=list[list.length-1];if(s&&s.ref)out.cross.push({from:s.id,toComicTop:targets,label:last});}
+   for(const l of legs)targets.forEach((g,gi)=>{out.svg+=`<path d="M ${l.x} ${bottomY} L ${g.x} ${g.y}" marker-end="url(#chain-arrow)"/>`;if(gi===0)lab(l.label,(l.x+g.x)/2,(l.x+g.x)/2,(bottomY+g.y)/2,'d');});
    wrap(s0,c0);
   }
   return out;
@@ -483,6 +478,7 @@ function renderAllMemories(tiles){
    const ok=(x,y)=>{const r={x,y,w,h:hh};return !placed.some(o=>hit(r,o))&&!cardRects.some(c=>hit(r,c))&&!pageRects.some(c=>hit(r,c))&&!(strict&&segRects.some(c=>hit(r,c)));};
    for(let k=R.length-1;k>0&&!spot;k--){const p0=R[k-1],p1=R[k];
     if(Math.abs(p0.y-p1.y)<.01){const lo=Math.min(p0.x,p1.x),hi=Math.max(p0.x,p1.x);for(let s=0;s+w+16<=hi-lo&&!spot;s+=40){const x=p0.x<p1.x?hi-8-s-w:lo+8+s;for(const y of [p1.y-hh-6,p1.y+6])if(ok(x,y)){spot={x,y};break;}}}
+    else if(Math.abs(p0.x-p1.x)>.01){for(const t of [.5,.4,.6,.3,.7,.2,.8]){const x=p0.x+(p1.x-p0.x)*t,y=p0.y+(p1.y-p0.y)*t;for(const [xx,yy] of [[x+8,y-hh-6],[x-w-8,y+6],[x+8,y+6],[x-w-8,y-hh-6]])if(ok(xx,yy)){spot={x:xx,y:yy};break;}if(spot)break;}} // 대각선(all6)
     else{const lo=Math.min(p0.y,p1.y),hi=Math.max(p0.y,p1.y);for(let s=0;s+hh+16<=hi-lo&&!spot;s+=30){const y=p0.y<p1.y?hi-8-s-hh:lo+8+s;for(const x of [p1.x+8,p1.x-8-w])if(ok(x,y)){spot={x,y};break;}}}}}
    if(spot){h.style.left=spot.x+'px';h.style.top=spot.y+'px';placed.push({x:spot.x,y:spot.y,w,h:hh});return;}}
   const y=parseFloat(h.dataset.y),hh=h.offsetHeight,w=h.offsetWidth,x=parseFloat(h.style.left);let top=h.dataset.mode==='h'?y-hh-6:y-hh/2;
@@ -581,7 +577,7 @@ function renderAllMemories(tiles){
    if(Bn.kind==='page'){const P=loc(Bn),pts=[];for(const r of e.regions){const px=P.x+r.rect[0]*P.w,py=P.y+(r.rect[1]+r.rect[3]/2)*P.h;if(!pts.some(o=>Math.abs(o.x-px)<20&&Math.abs(o.y-py)<20))pts.push({x:px,y:py});}
     if(!pts.length)pts.push({x:P.x,y:P.y+P.h/2});for(const t of pts){goals.push({a,bx:t.x,by:t.y,dir:'left',comicP:P});gEdge.push(e);}}
    else{const T=loc(Bn),ek=Bn.k,i=entryCount.get(ek)||0;entryCount.set(ek,i+1);goals.push({a,bx:T.x,by:Math.min(T.y+ARROW+i*24,T.y+T.h-12),dir:'left',comicP:null});gEdge.push(e);}}
-  const routed=goals.length?routeCrossArrows({W:maxX-minX,H:maxY-minY,cards:nodesArr.filter(n=>n.kind==='card').map(loc),pages:nodesArr.filter(n=>n.kind==='page').map(loc),labels:[],zoneSegs:[],goals},{ITERS:3}).routes:[];
+  const routed=goals.map(g=>[{x:g.a.x,y:g.a.y},{x:g.bx,y:g.by}]); // all6: 곧은 선
   const paths=routed.map((r,i)=>{const z=(r||[{x:goals[i].a.x,y:goals[i].a.y},{x:goals[i].bx,y:goals[i].by}]).map(p=>({x:p.x+minX,y:p.y+minY}));return {z,e:gEdge[i]};});
   return {N,paths};
  };
@@ -615,6 +611,7 @@ function renderAllMemories(tiles){
     const ok=(x,y)=>{const r={x,y,w,h:hh};return !placed.some(o=>hit(r,o))&&!boxes.some(o=>hit(r,o))&&!(strict&&segs.some(o=>hit(r,o)));};
     for(let k=z.length-1;k>0&&!spot;k--){const p0=z[k-1],p1=z[k];
      if(Math.abs(p0.y-p1.y)<.01){const lo=Math.min(p0.x,p1.x),hi=Math.max(p0.x,p1.x);for(let s=0;s+w+16<=hi-lo&&!spot;s+=30){const xx=p0.x<p1.x?hi-8-s-w:lo+8+s;for(const yy of [p1.y-hh-6,p1.y+6])if(ok(xx,yy)){spot={x:xx,y:yy};break;}}}
+     else if(Math.abs(p0.x-p1.x)>.01){for(const t of [.5,.4,.6,.3,.7,.2,.8]){const x=p0.x+(p1.x-p0.x)*t,y=p0.y+(p1.y-p0.y)*t;for(const [xx,yy] of [[x+8,y-hh-6],[x-w-8,y+6],[x+8,y+6],[x-w-8,y-hh-6]])if(ok(xx,yy)){spot={x:xx,y:yy};break;}if(spot)break;}} // 대각선(all6)
      else{const lo=Math.min(p0.y,p1.y),hi=Math.max(p0.y,p1.y);for(let s=0;s+hh+16<=hi-lo&&!spot;s+=24){const yy=p0.y<p1.y?hi-8-s-hh:lo+8+s;for(const xx of [p1.x+8,p1.x-8-w])if(ok(xx,yy)){spot={x:xx,y:yy};break;}}}}}
    if(!spot){const p0=z[0],free=(x,y)=>{const r={x,y,w,h:hh};return !placed.some(o=>hit(r,o))&&!boxes.some(o=>hit(r,o));};
     for(let i=0;i<40&&!spot;i++)for(const xx of [p0.x+10,p0.x+10+w+12]){const yy=p0.y-hh-6+i*(hh+4);if(free(xx,yy)){spot={x:xx,y:yy};break;}}
@@ -624,7 +621,8 @@ function renderAllMemories(tiles){
  // 누름: 같은 것을 다시 누르거나 여백·Esc → 풀림(제자리로). 다른 것을 누르면 그것으로 다시 모임.
  const threadLit=key=>{for(const el of layer.querySelectorAll('.thread-lines g.pin-on,.thread-note.pin-on'))el.classList.remove('pin-on');if(!key||key[0]!=='p')return;const pid=key.slice(2);for(const el of layer.querySelectorAll('.thread-lines g,.thread-note'))if(el.dataset.page===pid||el.dataset.page2===pid)el.classList.add('pin-on');};
  wallHover={pin:key=>{if(key&&key[0]==='p'&&!byPage.has(key.slice(2)))key=null;if(key&&key===pinned)key=null;pinned=key;show(null);if(key)focus(key);else unfocus();threadLit(key);}};
- startCrossRouting(routerInput,finishRoutes);
+ // all6: 길찾기(cross-router, ㄱ자) 대신 출발점→목표점 곧은 선(작가 "대각선이어도 될 듯"). 워커·저장 결과는 안 씀
+ finishRoutes(goalList.map(g=>[{x:g.a.x,y:g.a.y},{x:g.bx,y:g.by}]),{ms:0,iters:0});
  return {x:0,y:0,width:wallW,height:wallH,cards:nodes.size,cross:cross.length};
 }
 function canvasPageBox(pageId){
