@@ -32,6 +32,9 @@
  .err{color:var(--bad)}
  .pages span{display:inline-block;margin:0 10px 4px 0}
  .pages b{font-weight:600}
+ .nav{font:inherit;font-size:16px;line-height:1;padding:2px 9px;border:1px solid #c9cfbf;border-radius:4px;background:#fff;color:var(--ink);cursor:pointer}.nav:disabled{opacity:.3;cursor:default}
+ ul.log{max-height:360px;overflow:auto}
+ .bars i.sel{background:var(--hl);opacity:1}.bars i{cursor:pointer}
  #devices button{font:inherit;font-size:12px;padding:1px 8px;margin-left:6px;border:1px solid #c9cfbf;border-radius:4px;background:#fff;color:var(--ink);cursor:pointer}
 </style>
 </head>
@@ -43,11 +46,11 @@
    <div class="mirror" id="mirror"><iframe id="frame" title="전시장 화면 따라가기"></iframe></div></section>
  </div>
  <div style="display:grid;gap:14px;align-content:start">
-  <section><h2>오늘</h2><div id="today" class="big">—</div><div id="todaysub" class="mute"></div>
+  <section><h2 id="dayh">오늘</h2><div class="row" style="align-items:baseline"><button class="nav" id="prev" title="전날">‹</button><div id="today" class="big">—</div><button class="nav" id="next" title="다음날">›</button></div><div id="todaysub" class="mute"></div>
    <div class="bars" id="hours"></div><div class="hl"><span>0시</span><span>12시</span><span>23시</span></div></section>
-  <section><h2>오늘 많이 본 쪽</h2><div id="pages" class="pages mute">—</div></section>
-  <section><h2>최근 조작</h2><ul id="recent"><li class="mute">—</li></ul></section>
-  <section><h2>날짜별 조작(쪽·컷)</h2><div class="bars" id="days"></div><div id="dayslbl" class="hl"></div></section>
+  <section><h2 id="pagesh">오늘 많이 본 쪽</h2><div id="pages" class="pages mute">—</div></section>
+  <section><h2 id="recenth">오늘 조작 전부</h2><ul id="recent" class="log"><li class="mute">—</li></ul></section>
+  <section><h2>날짜별 조작(쪽·컷) — 막대를 누르면 그날로</h2><div class="bars" id="days"></div><div id="dayslbl" class="hl"></div><div id="total" class="mute" style="margin-top:6px"></div></section>
  </div>
 </main>
 <script>
@@ -59,7 +62,7 @@
  const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloZWNtc2d4cGZkaWl6bGtkeWx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NDQxNTUsImV4cCI6MjA5MzAyMDE1NX0.yKOehtOFcr7IRpDFsKmiRJFB63QsAxk1NU258EKfr0s';
  const rpc=(fn,body)=>fetch(BASE+fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:ANON,Authorization:'Bearer '+ANON},body:JSON.stringify(body)}).then(r=>r.ok?r.json():undefined).catch(()=>undefined);
  const frame=$('#frame'),mirror=$('#mirror');frame.src='./?mirror='+encodeURIComponent(KEY);
- let lastVw=0,lastVh=0;
+ let lastVw=0,lastVh=0,DAY=null; // DAY=null이면 오늘(KST). 작가 10-22 "어제꺼는 아예 못 보네" → 날짜를 골라 그날 통계·조작 전부
  const fit=(vw,vh)=>{if(!vw||!vh)return;lastVw=vw;lastVh=vh;const w=mirror.clientWidth,s=Math.min(1,w/vw);frame.width=vw;frame.height=vh;frame.style.width=vw+'px';frame.style.height=vh+'px';frame.style.transform=`scale(${s})`;mirror.style.height=Math.round(vh*s)+'px';};
  window.addEventListener('resize',()=>fit(lastVw,lastVh));fit(1920,1080); // 상태가 오기 전엔 아이맥 크기로
  const kst=t=>t?new Date(t).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'Asia/Seoul'}):'';
@@ -80,15 +83,20 @@
   $$('#devices button').forEach(b=>b.onclick=async()=>{b.disabled=true;await rpc('somido_mark',{k:KEY,d:b.dataset.dev,lbl:'전시장'});poll();});
   const [w1,w2]=what(s);$('#viewing').textContent=on?w1:'—';$('#viewsub').textContent=on?w2+(s.cam?` · 배율 ${s.cam.scale.toFixed(2)}`:''):(upd?'마지막으로 보고된 화면: '+what(s)[0]:'');
   if(s.vw&&s.vh)fit(s.vw,s.vh);
-  const t=r.today||{};$('#today').textContent=`${t.pins||0}번 눌러 봄`;$('#todaysub').textContent=t.first?`처음 ${hm(t.first)} · 마지막 ${hm(t.last)} · 모든 조작 ${t.events}`:'아직 조작 없음';
+  const t=r.stats||{},isToday=r.day===r.today;$('#dayh').textContent=isToday?'오늘':'그날';$('#pagesh').textContent=(isToday?'오늘':r.day.slice(5).replace('-','/'))+' 많이 본 쪽';$('#recenth').textContent=(isToday?'오늘':r.day.slice(5).replace('-','/'))+` 조작 전부 (${t.events||0})`;
+  $('#today').textContent=`${isToday?'오늘':r.day.slice(5).replace('-','/')} · ${t.pins||0}번 눌러 봄`;$('#todaysub').textContent=t.first?`처음 ${hm(t.first)} · 마지막 ${hm(t.last)} · 모든 조작 ${t.events}`:'조작 없음';
+  $('#next').disabled=isToday;
   bars($('#hours'),r.hours||[],x=>x.h,24);
   const tp=r.top_pages||[];$('#pages').innerHTML=tp.length?tp.map(x=>`<span><b>${x.page}쪽</b> ${x.n}</span>`).join(''):'—';
-  const rc=r.recent||[];$('#recent').innerHTML=rc.length?rc.slice(0,12).map(e=>`<li><time>${kst(e.ts)}</time><span>${e.type==='cut'?`${e.page}쪽 컷 ${e.cut||''}`:e.type==='page'?`${e.page}쪽 모아 보기`:e.type==='unpin'?'풀림':e.type}</span></li>`).join(''):'<li class="mute">—</li>';
-  const ds=(r.days||[]).slice().sort((a,b)=>a.d<b.d?-1:1);if(ds.length){const max=Math.max(1,...ds.map(x=>x.n));$('#days').innerHTML=ds.map(x=>`<i style="height:${Math.max(2,Math.round(x.n/max*46))}px" title="${x.d} ${x.n}"></i>`).join('');$('#dayslbl').innerHTML=`<span>${ds[0].d.slice(5)}</span><span>${ds[ds.length-1].d.slice(5)}</span>`;}
+  const rc=r.events||[];$('#recent').innerHTML=rc.length?rc.map(e=>`<li><time>${kst(e.ts)}</time><span>${e.type==='cut'?`${e.page}쪽 컷 ${e.cut||''}`:e.type==='page'?`${e.page}쪽 모아 보기`:e.type==='unpin'?'풀림':e.type}</span></li>`).join(''):'<li class="mute">—</li>';
+  const ds=(r.days||[]).slice().sort((a,b)=>a.d<b.d?-1:1);if(ds.length){const max=Math.max(1,...ds.map(x=>x.n));$('#days').innerHTML=ds.map(x=>`<i class="${x.d===r.day?'sel':''}" data-d="${x.d}" style="height:${Math.max(2,Math.round(x.n/max*46))}px" title="${x.d} ${x.n}"></i>`).join('');$('#dayslbl').innerHTML=`<span>${ds[0].d.slice(5)}</span><span>${ds[ds.length-1].d.slice(5)}</span>`;$$('#days i').forEach(el=>el.onclick=()=>{DAY=el.dataset.d;poll();});}
+  $('#total').textContent=`쌓인 기록 ${r.total||0}건 (지우지 않음)`;
  };
- const poll=async()=>render(await rpc('somido_watch',{k:KEY}));
+ const poll=async()=>render(await rpc('somido_watch',DAY?{k:KEY,day:DAY}:{k:KEY}));
+ const shift=n=>{const d=new Date((DAY||new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}))+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);const t=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});const v=d.toISOString().slice(0,10);DAY=v>=t?null:v;poll();};
+ $('#prev').onclick=()=>shift(-1);$('#next').onclick=()=>shift(1);
  poll();setInterval(poll,3000);
- window.addEventListener('message',e=>{if(e.data&&'somidoWatch'in e.data&&e.data.somidoWatch)render(e.data.somidoWatch);});
+ // (미러 iframe이 보내는 postMessage로는 그리지 않음 — 그건 늘 '오늘' 자료라 날짜를 고른 화면을 3초마다 덮어썼음, 10-22)
 })();
 </script>
 </body>
