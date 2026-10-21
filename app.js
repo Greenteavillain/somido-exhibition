@@ -149,6 +149,10 @@ function renderCanvas(){
  const fitAll=()=>canvasController.fit(bounds,70);
  // all6: 확인용 손잡이 — 콘솔에서 somidoFocusPage('p001', 배율)로 그 쪽 둘레를 화면에 맞춤(브라우저 도구가 모듈 변수에 못 닿아서)
  window.somidoCamera=(x,y,scale)=>{canvasController.setCamera({x,y,scale});return canvasController.getCamera();}; // 확인용: 카메라를 바로 놓기
+ // 원격 확인(kiosk-report.js): 지금 상태(카메라·눌린 쪽/컷) 읽기 / 작가 확인 페이지에서 그 상태 따라가기. 화면 요소 없음
+ window.somidoSnapshot=()=>{if(!canvasController)return null;const c=canvasController.getCamera();const key=pinned||null;const pid=key?(key[0]==='p'?key.slice(2):key[0]==='q'?key.split(':')[1]:null):null;const ci=key&&key[0]==='q'?+key.split(':')[2]:-1;const cut=pid&&ci>=0&&B.cuts&&B.cuts[pid]&&B.cuts[pid][ci]?B.cuts[pid][ci][4]:null;
+  return {cam:{x:c.x,y:c.y,scale:c.scale},pinned:key,pid,page:pid?getPageNumber(pid):null,cut,idleSec:Math.round((performance.now()-(window.__somidoLastInput||0))/1000)};};
+ window.somidoApply=s=>{if(!canvasController||!s)return;if(s.cam)canvasController.setCamera(s.cam);const key=s.pinned||null;if(wallHover&&key!==pinned)wallHover.pin(key);};
  window.somidoFocusPage=(pid,scale=.8,pad=600)=>{const t=tileNodes.find(t=>t.pageIds.includes(pid));if(!t)return false;canvasController.focus({x:t.x-pad,y:t.y-pad/2,width:t.width+pad*2,height:t.height+pad},scale);return true;};
  // Set the full book as the keyboard reset target, then restore the current view.
  fitAll();
@@ -159,12 +163,13 @@ function renderCanvas(){
  startCamera={...canvasController.getCamera()}; // 자동 복귀·'처음' 단추용
  // ── 매직마우스용(2026-10-20 작가 "전시장엔 애플마우스만"): 핀치가 없어 확대·축소는 ① 오른쪽 아래 큰 단추 ② 더블클릭(그 자리 1.6배, 빈 곳 더블클릭은 처음 배율)으로.
  //    왼쪽 아래 60pt 칸은 키오스크 앱(somido-kiosk)의 숨은 패턴 자리라 단추를 오른쪽 아래에 둠. 3분 동안 입력이 없으면 모임을 풀고 처음 화면으로(키오스크의 5분 초기화보다 먼저).
- { // 화면에 단추는 없음(작가 10-20 "그냥 보여주기만"). 확대 = 더블클릭, 처음으로 = 빈 곳 더블클릭
+ if(new URLSearchParams(location.search).has('mirror'))viewport.style.pointerEvents='none'; // 작가 확인 페이지(따라가기, ?mirror=키)에선 손대지 못하게 + 더블클릭·3분 복귀 없음 — 어차피 3초마다 전시장 상태로 덮임. (kiosk-report.js의 dataset은 이 코드보다 늦게 실행돼 주소로 판단)
+ else { // 화면에 단추는 없음(작가 10-20 "그냥 보여주기만"). 확대 = 더블클릭, 처음으로 = 빈 곳 더블클릭
   viewport.addEventListener('dblclick',e=>{e.preventDefault();const onPage=e.target.closest('.canvas-page'),onCard=e.target.closest('.canvas-memory-card');
    if(onPage||onCard){canvasController.zoomAt(1.6,e.clientX,e.clientY);if(onPage&&wallHover){const pid=onPage.dataset.canvasPage;if(!(pinned||'').includes(pid))wallHover.pin('p:'+pid);}} // 쪽 위 더블클릭 = 확대 + 그 쪽 모임 유지(클릭 두 번으로 풀린 걸 되돌림)
    else{if(wallHover)wallHover.pin(null);canvasController.setCamera(startCamera);}});
   let lastInput=performance.now();const IDLE_MS=3*60*1000;
-  for(const t of ['pointermove','pointerdown','wheel','keydown'])window.addEventListener(t,()=>{lastInput=performance.now();},{passive:true,capture:true});
+  for(const t of ['pointermove','pointerdown','wheel','keydown'])window.addEventListener(t,()=>{lastInput=performance.now();window.__somidoLastInput=lastInput;},{passive:true,capture:true}); // __somidoLastInput = 원격 확인용 '마지막 조작'
   setInterval(()=>{if(performance.now()-lastInput<IDLE_MS)return;lastInput=performance.now();if(wallHover)wallHover.pin(null);canvasController.setCamera(startCamera);},5000);}
  if(focused&&canvasSourceFit===focused.id&&tiles.some(t=>t.matched)){
   const matched=tiles.filter(t=>t.matched),x=Math.min(...matched.map(t=>t.x)),y=Math.min(...matched.map(t=>t.y));

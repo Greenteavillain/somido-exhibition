@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>소미도 근무일지 — 전시장 확인</title>
+<meta name="robots" content="noindex">
+<style>
+ /* 작가 전용 확인 페이지(2026-10-21). 주소에 ?k=<비밀키>. 전시 사이트와 같은 올리브 톤, 글꼴 Pretendard. 전시장 화면엔 아무것도 안 보임 */
+ :root{--ink:#2a2e24;--line:#3b462b;--mute:#7a8270;--paper:#fff;--bg:#f4f5f0;--hl:#78cd46;--bad:#c4573a}
+ *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:14px;line-height:1.5}
+ header{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline;padding:14px 16px;background:var(--paper);border-bottom:1px solid #dfe3d8;position:sticky;top:0;z-index:2}
+ header h1{font-size:15px;margin:0;font-weight:600}
+ .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#bbb;margin-right:6px;vertical-align:-1px}
+ .on .dot{background:var(--hl)}.off .dot{background:var(--bad)}
+ .mute{color:var(--mute)}
+ main{padding:14px 16px;display:grid;gap:14px;grid-template-columns:1fr}
+ @media(min-width:900px){main{grid-template-columns:minmax(0,1fr) 320px}}
+ section{background:var(--paper);border:1px solid #dfe3d8;border-radius:6px;padding:12px 14px}
+ section h2{font-size:12px;margin:0 0 8px;color:var(--mute);font-weight:600;letter-spacing:.02em}
+ .big{font-size:20px;font-weight:600;margin:2px 0 6px}
+ .row{display:flex;flex-wrap:wrap;gap:6px 16px}
+ .mirror{position:relative;overflow:hidden;background:#fff;border-radius:4px;border:1px solid #dfe3d8}
+ .mirror iframe{border:0;transform-origin:0 0;display:block;background:#fff}
+ .bars{display:flex;align-items:flex-end;gap:2px;height:48px;margin-top:6px}
+ .bars i{flex:1;background:var(--line);opacity:.75;min-height:1px;border-radius:1px 1px 0 0}
+ .bars i.zero{opacity:.12}
+ .hl{display:flex;justify-content:space-between;font-size:11px;color:var(--mute)}
+ ul{list-style:none;margin:0;padding:0}li{display:flex;gap:10px;padding:3px 0;border-top:1px solid #eef0ea}li:first-child{border-top:0}
+ li time{color:var(--mute);font-variant-numeric:tabular-nums;min-width:62px}
+ .err{color:var(--bad)}
+ .pages span{display:inline-block;margin:0 10px 4px 0}
+ .pages b{font-weight:600}
+</style>
+</head>
+<body>
+<header id="hd"><h1>소미도 근무일지 · 전시장</h1><span id="status" class="mute">연결 중…</span><span id="touch" class="mute"></span><span id="fs" class="mute"></span></header>
+<main>
+ <div style="display:grid;gap:14px">
+  <section><h2>지금 화면</h2><div id="viewing" class="big">—</div><div id="viewsub" class="mute"></div>
+   <div class="mirror" id="mirror"><iframe id="frame" title="전시장 화면 따라가기"></iframe></div></section>
+ </div>
+ <div style="display:grid;gap:14px;align-content:start">
+  <section><h2>오늘</h2><div id="today" class="big">—</div><div id="todaysub" class="mute"></div>
+   <div class="bars" id="hours"></div><div class="hl"><span>0시</span><span>12시</span><span>23시</span></div></section>
+  <section><h2>오늘 많이 본 쪽</h2><div id="pages" class="pages mute">—</div></section>
+  <section><h2>최근 조작</h2><ul id="recent"><li class="mute">—</li></ul></section>
+  <section><h2>날짜별 조작(쪽·컷)</h2><div class="bars" id="days"></div><div id="dayslbl" class="hl"></div></section>
+ </div>
+</main>
+<script>
+(()=>{
+ const q=new URLSearchParams(location.search),KEY=q.get('k');
+ const $=s=>document.querySelector(s);
+ if(!KEY){$('#status').textContent='주소에 ?k=비밀키 가 필요합니다';$('#status').className='err';return;}
+ const BASE='https://ihecmsgxpfdiizlkdylv.supabase.co/rest/v1/rpc/';
+ const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloZWNtc2d4cGZkaWl6bGtkeWx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NDQxNTUsImV4cCI6MjA5MzAyMDE1NX0.yKOehtOFcr7IRpDFsKmiRJFB63QsAxk1NU258EKfr0s';
+ const rpc=(fn,body)=>fetch(BASE+fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:ANON,Authorization:'Bearer '+ANON},body:JSON.stringify(body)}).then(r=>r.ok?r.json():undefined).catch(()=>undefined);
+ const frame=$('#frame'),mirror=$('#mirror');frame.src='./?mirror='+encodeURIComponent(KEY);
+ let lastVw=0,lastVh=0;
+ const fit=(vw,vh)=>{if(!vw||!vh)return;lastVw=vw;lastVh=vh;const w=mirror.clientWidth,s=Math.min(1,w/vw);frame.width=vw;frame.height=vh;frame.style.width=vw+'px';frame.style.height=vh+'px';frame.style.transform=`scale(${s})`;mirror.style.height=Math.round(vh*s)+'px';};
+ window.addEventListener('resize',()=>fit(lastVw,lastVh));fit(1920,1080); // 상태가 오기 전엔 아이맥 크기로
+ const kst=t=>t?new Date(t).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'Asia/Seoul'}):'';
+ const hm=t=>t?new Date(t).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'}):'';
+ const ago=sec=>sec<60?`${Math.round(sec)}초 전`:sec<3600?`${Math.floor(sec/60)}분 전`:sec<86400?`${Math.floor(sec/3600)}시간 ${Math.floor(sec%3600/60)}분 전`:`${Math.floor(sec/86400)}일 전`;
+ const what=s=>{if(!s||!s.pinned)return ['전체 보기',''];const pg=s.page?`${s.page}쪽`:'';return s.pinned[0]==='q'?[`${pg} · 컷 ${s.cut||''} 과정`,'컷을 눌러 그 컷의 기록만 모아 보는 중']:[`${pg} 모아 보기`,'쪽을 눌러 기록을 모은 상태'];};
+ const bars=(el,items,keyOf,n)=>{const m=new Map(items.map(x=>[keyOf(x),x.n]));const max=Math.max(1,...items.map(x=>x.n));el.innerHTML=Array.from({length:n},(_,i)=>{const v=m.get(i)||0;return `<i class="${v?'':'zero'}" style="height:${Math.max(2,Math.round(v/max*46))}px" title="${v}"></i>`;}).join('');};
+ const render=r=>{
+  if(r===undefined){$('#status').textContent='연결 안 됨(Supabase 응답 없음)';$('#status').className='err';return;}
+  if(r===null){$('#status').textContent='키가 맞지 않습니다';$('#status').className='err';return;}
+  const now=new Date(r.now).getTime(),upd=r.updated_at?new Date(r.updated_at).getTime():0,gap=(now-upd)/1000,on=upd&&gap<25,s=r.state||{};
+  document.body.className=on?'on':'off';
+  $('#status').innerHTML=`<span class="dot"></span>${on?'켜짐':(upd?'꺼짐 — 마지막 보고 '+ago(gap):'보고 없음')}`;$('#status').className='';
+  $('#touch').textContent=on&&s.idleSec!=null?`마지막 조작 ${ago(s.idleSec+gap)}`:'';
+  $('#fs').textContent=on?(s.fullscreen?'전체화면':'창 모드')+(s.vw?` · ${s.vw}×${s.vh}`:''):'';
+  const [w1,w2]=what(s);$('#viewing').textContent=on?w1:'—';$('#viewsub').textContent=on?w2+(s.cam?` · 배율 ${s.cam.scale.toFixed(2)}`:''):(upd?'마지막으로 보고된 화면: '+what(s)[0]:'');
+  if(s.vw&&s.vh)fit(s.vw,s.vh);
+  const t=r.today||{};$('#today').textContent=`${t.pins||0}번 눌러 봄`;$('#todaysub').textContent=t.first?`처음 ${hm(t.first)} · 마지막 ${hm(t.last)} · 모든 조작 ${t.events}`:'아직 조작 없음';
+  bars($('#hours'),r.hours||[],x=>x.h,24);
+  const tp=r.top_pages||[];$('#pages').innerHTML=tp.length?tp.map(x=>`<span><b>${x.page}쪽</b> ${x.n}</span>`).join(''):'—';
+  const rc=r.recent||[];$('#recent').innerHTML=rc.length?rc.slice(0,12).map(e=>`<li><time>${kst(e.ts)}</time><span>${e.type==='cut'?`${e.page}쪽 컷 ${e.cut||''}`:e.type==='page'?`${e.page}쪽 모아 보기`:e.type==='unpin'?'풀림':e.type}</span></li>`).join(''):'<li class="mute">—</li>';
+  const ds=(r.days||[]).slice().sort((a,b)=>a.d<b.d?-1:1);if(ds.length){const max=Math.max(1,...ds.map(x=>x.n));$('#days').innerHTML=ds.map(x=>`<i style="height:${Math.max(2,Math.round(x.n/max*46))}px" title="${x.d} ${x.n}"></i>`).join('');$('#dayslbl').innerHTML=`<span>${ds[0].d.slice(5)}</span><span>${ds[ds.length-1].d.slice(5)}</span>`;}
+ };
+ const poll=async()=>render(await rpc('somido_watch',{k:KEY}));
+ poll();setInterval(poll,3000);
+ window.addEventListener('message',e=>{if(e.data&&'somidoWatch'in e.data&&e.data.somidoWatch)render(e.data.somidoWatch);});
+})();
+</script>
+</body>
+</html>
