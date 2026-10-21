@@ -22,6 +22,7 @@
  .row{display:flex;flex-wrap:wrap;gap:6px 16px}
  .mirror{position:relative;overflow:hidden;background:#fff;border-radius:4px;border:1px solid #dfe3d8}
  .mirror iframe{border:0;transform-origin:0 0;display:block;background:#fff}
+ .mirror::after{content:'';position:absolute;inset:0;z-index:1} /* 투명 막: 미러는 보기만. 마우스를 대도 호버 효과조차 안 돌게(작가 10-21 "내가 조종할 수 있는거야?" — 읽기 전용인데 호버가 돌아 헷갈림) */
  .bars{display:flex;align-items:flex-end;gap:2px;height:48px;margin-top:6px}
  .bars i{flex:1;background:var(--line);opacity:.75;min-height:1px;border-radius:1px 1px 0 0}
  .bars i.zero{opacity:.12}
