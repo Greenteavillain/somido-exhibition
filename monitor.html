@@ -32,10 +32,11 @@
  .err{color:var(--bad)}
  .pages span{display:inline-block;margin:0 10px 4px 0}
  .pages b{font-weight:600}
+ #devices button{font:inherit;font-size:12px;padding:1px 8px;margin-left:6px;border:1px solid #c9cfbf;border-radius:4px;background:#fff;color:var(--ink);cursor:pointer}
 </style>
 </head>
 <body>
-<header id="hd"><h1>소미도 근무일지 · 전시장</h1><span id="status" class="mute">연결 중…</span><span id="touch" class="mute"></span><span id="fs" class="mute"></span></header>
+<header id="hd"><h1>소미도 근무일지 · 전시장</h1><span id="status" class="mute">연결 중…</span><span id="touch" class="mute"></span><span id="fs" class="mute"></span><span id="devices" class="mute"></span></header>
 <main>
  <div style="display:grid;gap:14px">
   <section><h2>지금 화면</h2><div id="viewing" class="big">—</div><div id="viewsub" class="mute"></div>
@@ -52,7 +53,7 @@
 <script>
 (()=>{
  const q=new URLSearchParams(location.search),KEY=q.get('k');
- const $=s=>document.querySelector(s);
+ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
  if(!KEY){$('#status').textContent='주소에 ?k=비밀키 가 필요합니다';$('#status').className='err';return;}
  const BASE='https://ihecmsgxpfdiizlkdylv.supabase.co/rest/v1/rpc/';
  const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloZWNtc2d4cGZkaWl6bGtkeWx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NDQxNTUsImV4cCI6MjA5MzAyMDE1NX0.yKOehtOFcr7IRpDFsKmiRJFB63QsAxk1NU258EKfr0s';
@@ -69,11 +70,14 @@
  const render=r=>{
   if(r===undefined){$('#status').textContent='연결 안 됨(Supabase 응답 없음)';$('#status').className='err';return;}
   if(r===null){$('#status').textContent='키가 맞지 않습니다';$('#status').className='err';return;}
-  const now=new Date(r.now).getTime(),upd=r.updated_at?new Date(r.updated_at).getTime():0,gap=(now-upd)/1000,on=upd&&gap<25,s=r.state||{};
+  const now=new Date(r.now).getTime(),ch=r.chosen,upd=ch&&ch.updated_at?new Date(ch.updated_at).getTime():0,gap=(now-upd)/1000,on=!!upd&&gap<25,s=(ch&&ch.state)||{};
   document.body.className=on?'on':'off';
-  $('#status').innerHTML=`<span class="dot"></span>${on?'켜짐':(upd?'꺼짐 — 마지막 보고 '+ago(gap):'보고 없음')}`;$('#status').className='';
+  $('#status').innerHTML=`<span class="dot"></span>${on?'켜짐':(upd?'꺼짐 — 마지막 보고 '+ago(gap):'아직 보고된 창 없음')}`;$('#status').className='';
   $('#touch').textContent=on&&s.idleSec!=null?`마지막 조작 ${ago(s.idleSec+gap)}`:'';
   $('#fs').textContent=on?(s.fullscreen?'전체화면':'창 모드')+(s.vw?` · ${s.vw}×${s.vh}`:''):'';
+  // 살아 있는 창이 여럿이면(작가 노트북 등) 어느 것을 전시장으로 볼지 — 자동(전체화면·큰 화면 우선)이지만 한 번 눌러 고정할 수 있음
+  const dv=r.devices||[];$('#devices').innerHTML=dv.length>1?`접속 창 ${dv.length}개: `+dv.map(d=>`<span>${d.label||(d.fullscreen==='true'?'전체화면':'창')} ${d.vw||'?'}×${d.vh||'?'}${ch&&d.device_id===ch.device_id?' ← 보는 중':''}${d.label==='전시장'?'':`<button data-dev="${d.device_id}">이걸 전시장으로</button>`}</span>`).join(' · '):(ch&&ch.label==='전시장'?'전시장으로 표시된 창':'');
+  $$('#devices button').forEach(b=>b.onclick=async()=>{b.disabled=true;await rpc('somido_mark',{k:KEY,d:b.dataset.dev,lbl:'전시장'});poll();});
   const [w1,w2]=what(s);$('#viewing').textContent=on?w1:'—';$('#viewsub').textContent=on?w2+(s.cam?` · 배율 ${s.cam.scale.toFixed(2)}`:''):(upd?'마지막으로 보고된 화면: '+what(s)[0]:'');
   if(s.vw&&s.vh)fit(s.vw,s.vh);
   const t=r.today||{};$('#today').textContent=`${t.pins||0}번 눌러 봄`;$('#todaysub').textContent=t.first?`처음 ${hm(t.first)} · 마지막 ${hm(t.last)} · 모든 조작 ${t.events}`:'아직 조작 없음';
